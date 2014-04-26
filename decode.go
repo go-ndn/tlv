@@ -19,7 +19,15 @@ func Unmarshal(raw []byte, i interface{}, rootType uint64) (err error) {
 		err = errors.New(fmt.Sprintf("type does not match: %d != %d", rootType, t))
 		return
 	}
-	err = decodeStruct(bytes.NewBuffer(v), reflect.ValueOf(i))
+	structValue := reflect.ValueOf(i)
+	if structValue.Kind() == reflect.Ptr {
+		structValue = structValue.Elem()
+	}
+	if structValue.Kind() != reflect.Struct {
+		err = errors.New("invalid type: " + structValue.Kind().String())
+		return
+	}
+	err = decodeStruct(bytes.NewBuffer(v), structValue)
 	return
 }
 
@@ -80,13 +88,6 @@ func decodeUint64(raw []byte) (v uint64, err error) {
 }
 
 func decodeStruct(buf *bytes.Buffer, structValue reflect.Value) (err error) {
-	if structValue.Kind() == reflect.Ptr {
-		structValue = structValue.Elem()
-	}
-	if structValue.Kind() != reflect.Struct {
-		err = errors.New("invalid type: " + structValue.Kind().String())
-		return
-	}
 	var t uint64
 	var v []byte
 	ok := true
