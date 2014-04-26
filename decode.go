@@ -43,7 +43,7 @@ func readBytes(buf *bytes.Buffer) (v uint64, err error) {
 	}
 	switch b {
 	case 0xFF:
-		err = binary.Read(buf, binary.BigEndian, v)
+		err = binary.Read(buf, binary.BigEndian, &v)
 	case 0xFE:
 		var v32 uint32
 		err = binary.Read(buf, binary.BigEndian, &v32)
