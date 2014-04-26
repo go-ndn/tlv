@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"hash"
 	"math"
 	"reflect"
 	"strconv"
@@ -12,7 +13,7 @@ import (
 
 func Marshal(i interface{}, rootType uint64) (raw []byte, err error) {
 	buf := new(bytes.Buffer)
-	writeBytes(buf, rootType)
+	WriteBytes(buf, rootType)
 	structValue := reflect.ValueOf(i)
 	if structValue.Kind() == reflect.Ptr {
 		structValue = structValue.Elem()
@@ -29,7 +30,7 @@ func Marshal(i interface{}, rootType uint64) (raw []byte, err error) {
 	return
 }
 
-func MarshalField(i interface{}, index []int) (raw []byte, err error) {
+func Hash(i interface{}, hasher hash.Hash, index []int) (sum []byte, err error) {
 	buf := new(bytes.Buffer)
 	structValue := reflect.ValueOf(i)
 	if structValue.Kind() == reflect.Ptr {
@@ -43,11 +44,12 @@ func MarshalField(i interface{}, index []int) (raw []byte, err error) {
 	if err != nil {
 		return
 	}
-	raw = buf.Bytes()
+	hasher.Write(buf.Bytes())
+	sum = hasher.Sum(nil)
 	return
 }
 
-func writeBytes(buf *bytes.Buffer, v uint64) (err error) {
+func WriteBytes(buf *bytes.Buffer, v uint64) (err error) {
 	switch {
 	case v > math.MaxUint32:
 		buf.WriteByte(0xFF)
@@ -67,29 +69,29 @@ func writeBytes(buf *bytes.Buffer, v uint64) (err error) {
 func encodeUint64(buf *bytes.Buffer, v uint64) (err error) {
 	switch {
 	case v > math.MaxUint32:
-		writeBytes(buf, 8)
+		WriteBytes(buf, 8)
 		err = binary.Write(buf, binary.BigEndian, v)
 	case v > math.MaxUint16:
-		writeBytes(buf, 4)
+		WriteBytes(buf, 4)
 		err = binary.Write(buf, binary.BigEndian, uint32(v))
 	case v > math.MaxUint8:
-		writeBytes(buf, 2)
+		WriteBytes(buf, 2)
 		err = binary.Write(buf, binary.BigEndian, uint16(v))
 	default:
-		writeBytes(buf, 1)
+		WriteBytes(buf, 1)
 		err = binary.Write(buf, binary.BigEndian, uint8(v))
 	}
 	return
 }
 
 func encodeString(buf *bytes.Buffer, v string) (err error) {
-	writeBytes(buf, uint64(len(v)))
+	WriteBytes(buf, uint64(len(v)))
 	_, err = buf.WriteString(v)
 	return
 }
 
 func encodeBytes(buf *bytes.Buffer, v []byte) (err error) {
-	writeBytes(buf, uint64(len(v)))
+	WriteBytes(buf, uint64(len(v)))
 	_, err = buf.Write(v)
 	return
 }
@@ -144,11 +146,11 @@ func encodeField(buf *bytes.Buffer, structValue reflect.Value, index []int) (err
 		if err != nil {
 			return
 		}
-		writeBytes(buf, valType[0])
+		WriteBytes(buf, valType[0])
 		switch fieldValue.Kind() {
 		case reflect.Bool:
 			// no length
-			writeBytes(buf, 0)
+			WriteBytes(buf, 0)
 		case reflect.Uint64:
 			err = encodeUint64(buf, fieldValue.Uint())
 			if err != nil {
@@ -159,13 +161,13 @@ func encodeField(buf *bytes.Buffer, structValue reflect.Value, index []int) (err
 			case reflect.Slice:
 				sliceBuf := new(bytes.Buffer)
 				for j := 0; j < fieldValue.Len(); j++ {
-					writeBytes(sliceBuf, valType[1])
+					WriteBytes(sliceBuf, valType[1])
 					err = encodeBytes(sliceBuf, fieldValue.Index(j).Bytes())
 					if err != nil {
 						return
 					}
 				}
-				writeBytes(buf, uint64(sliceBuf.Len()))
+				WriteBytes(buf, uint64(sliceBuf.Len()))
 				buf.ReadFrom(sliceBuf)
 			case reflect.Uint8:
 				err = encodeBytes(buf, fieldValue.Bytes())
@@ -181,7 +183,7 @@ func encodeField(buf *bytes.Buffer, structValue reflect.Value, index []int) (err
 						return
 					}
 					if j != fieldValue.Len()-1 {
-						writeBytes(buf, valType[0])
+						WriteBytes(buf, valType[0])
 					}
 				}
 			default:
@@ -218,7 +220,7 @@ func encodeStruct(buf *bytes.Buffer, structValue reflect.Value) (err error) {
 	if err != nil {
 		return
 	}
-	writeBytes(buf, uint64(childBuf.Len()))
+	WriteBytes(buf, uint64(childBuf.Len()))
 	buf.ReadFrom(childBuf)
 	return
 }

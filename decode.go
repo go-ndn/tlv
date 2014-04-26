@@ -32,11 +32,11 @@ func Unmarshal(raw []byte, i interface{}, rootType uint64) (err error) {
 }
 
 func readTLV(buf *bytes.Buffer) (t uint64, v []byte, err error) {
-	t, err = readBytes(buf)
+	t, err = ReadBytes(buf)
 	if err != nil {
 		return
 	}
-	l, err := readBytes(buf)
+	l, err := ReadBytes(buf)
 	if err != nil {
 		return
 	}
@@ -44,7 +44,7 @@ func readTLV(buf *bytes.Buffer) (t uint64, v []byte, err error) {
 	return
 }
 
-func readBytes(buf *bytes.Buffer) (v uint64, err error) {
+func ReadBytes(buf *bytes.Buffer) (v uint64, err error) {
 	b, err := buf.ReadByte()
 	if err != nil {
 		return
@@ -92,23 +92,18 @@ func decodeStruct(buf *bytes.Buffer, structValue reflect.Value) (err error) {
 	var v []byte
 	ok := true
 	for i := 0; i < structValue.NumField(); i++ {
-		// eof sink
-		if err != nil {
-			if optional(structValue, i) {
-				if i == structValue.NumField()-1 {
-					err = nil
-					return
-				}
-				continue
-			} else {
-				return
-			}
-		}
 		// read next tlv
 		if ok {
 			t, v, err = readTLV(buf)
 			if err != nil {
-				continue
+				// eof check the remaining is optional
+				for ; i < structValue.NumField(); i++ {
+					if !optional(structValue, i) {
+						return
+					}
+				}
+				err = nil
+				return
 			}
 		}
 		fieldValue := structValue.Field(i)
