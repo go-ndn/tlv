@@ -86,6 +86,8 @@ func zero(v reflect.Value) bool {
 		return v.Bool() == false
 	case reflect.Uint64:
 		return v.Uint() == 0
+	case reflect.Ptr:
+		fallthrough
 	case reflect.Slice:
 		return v.IsNil()
 	case reflect.String:
