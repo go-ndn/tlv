@@ -103,12 +103,6 @@ func decodeStruct(buf *bytes.Buffer, structValue reflect.Value) (err error) {
 				return
 			}
 		}
-		fieldValue := structValue.Field(i)
-		var valType []uint64
-		valType, err = typeValue(structValue, i)
-		if err != nil {
-			return
-		}
 		// read next tlv
 		if ok {
 			t, v, err = readTLV(buf)
@@ -116,9 +110,18 @@ func decodeStruct(buf *bytes.Buffer, structValue reflect.Value) (err error) {
 				continue
 			}
 		}
+		fieldValue := structValue.Field(i)
+		var valType []uint64
+		valType, err = typeValue(structValue, i)
+		if err != nil {
+			return
+		}
 		// type does not match
 		if valType[0] != t {
-			if optional(structValue, i) {
+			// 1. optional
+			// 2. []struct
+			if optional(structValue, i) ||
+				(fieldValue.Kind() == reflect.Slice && (fieldValue.Type().Elem().Kind() == reflect.Struct || fieldValue.Type().Elem().Kind() == reflect.Ptr)) {
 				ok = false
 				continue
 			} else {
@@ -160,26 +163,16 @@ func decodeStruct(buf *bytes.Buffer, structValue reflect.Value) (err error) {
 			case reflect.Ptr:
 				fallthrough
 			case reflect.Struct:
-				for {
-					elem := reflect.New(fieldValue.Type().Elem())
-					if fieldValue.Type().Elem().Kind() == reflect.Struct {
-						elem = elem.Elem()
-					}
-					err = decodeStruct(bytes.NewBuffer(v), elem)
-					if err != nil {
-						return
-					}
-					fieldValue.Set(reflect.Append(fieldValue, elem))
-					t, v, err = readTLV(buf)
-					if err != nil {
-						break
-					}
-					// mismatch, try next field
-					if valType[0] != t {
-						ok = false
-						break
-					}
+				elem := reflect.New(fieldValue.Type().Elem())
+				if fieldValue.Type().Elem().Kind() == reflect.Struct {
+					elem = elem.Elem()
 				}
+				err = decodeStruct(bytes.NewBuffer(v), elem)
+				if err != nil {
+					return
+				}
+				fieldValue.Set(reflect.Append(fieldValue, elem))
+				i--
 			default:
 				err = errors.New("invalid slice type: " + fieldValue.Type().String())
 				return
