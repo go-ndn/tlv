@@ -9,25 +9,17 @@ import (
 	"reflect"
 )
 
-func Unmarshal(raw []byte, i interface{}, rootType uint64) (err error) {
+func Unmarshal(raw []byte, i interface{}, valType uint64) (err error) {
 	buf := bytes.NewBuffer(raw)
 	t, v, err := readTLV(buf)
 	if err != nil {
 		return
 	}
-	if t != rootType {
-		err = errors.New(fmt.Sprintf("type does not match: %d != %d", rootType, t))
+	if valType != t {
+		err = errors.New(fmt.Sprintf("type does not match: %d != %d", valType, t))
 		return
 	}
-	structValue := reflect.ValueOf(i)
-	if structValue.Kind() == reflect.Ptr {
-		structValue = structValue.Elem()
-	}
-	if structValue.Kind() != reflect.Struct {
-		err = errors.New("invalid type: " + structValue.Kind().String())
-		return
-	}
-	err = decodeStruct(bytes.NewBuffer(v), structValue)
+	err = decode(reflect.ValueOf(i), v)
 	return
 }
 
@@ -94,24 +86,56 @@ func canIgnoreError(structValue reflect.Value, i int) bool {
 	if structValue.Field(i).Kind() != reflect.Slice {
 		return false
 	}
-	switch structValue.Field(i).Type().Elem().Kind() {
+	return structValue.Field(i).Type().Elem().Kind() != reflect.Uint8
+}
+
+func decode(value reflect.Value, v []byte) (err error) {
+	switch value.Kind() {
+	case reflect.Bool:
+		value.SetBool(true)
+	case reflect.Uint64:
+		var num uint64
+		num, err = decodeUint64(v)
+		if err != nil {
+			return
+		}
+		value.SetUint(num)
 	case reflect.Slice:
+		switch value.Type().Elem().Kind() {
+		case reflect.Uint8:
+			value.SetBytes(v)
+		default:
+			elem := reflect.New(value.Type().Elem()).Elem()
+			err = decode(elem, v)
+			if err != nil {
+				return
+			}
+			value.Set(reflect.Append(value, elem))
+		}
+	case reflect.String:
+		value.SetString(string(v))
+	case reflect.Ptr:
+		value = value.Elem()
 		fallthrough
 	case reflect.Struct:
-		fallthrough
-	case reflect.Ptr:
-		return true
+		err = decodeStruct(bytes.NewBuffer(v), value)
+		if err != nil {
+			return
+		}
+	default:
+		err = errors.New("invalid type: " + value.Kind().String())
+		return
 	}
-	return false
+	return
 }
 
 func decodeStruct(buf *bytes.Buffer, structValue reflect.Value) (err error) {
 	var t uint64
 	var v []byte
-	ok := true
+	readNext := true
 	for i := 0; i < structValue.NumField(); i++ {
 		// read next tlv
-		if ok {
+		if readNext {
 			t, v, err = readTLV(buf)
 			if err != nil {
 				for ; i < structValue.NumField(); i++ {
@@ -134,61 +158,20 @@ func decodeStruct(buf *bytes.Buffer, structValue reflect.Value) (err error) {
 			// 1. optional
 			// 2. []struct
 			if canIgnoreError(structValue, i) {
-				ok = false
+				readNext = false
 				continue
-			} else {
-				err = errors.New(fmt.Sprintf("type does not match: %d != %d", valType, t))
-				return
 			}
-		}
-		// can continue
-		ok = true
-		switch fieldValue.Kind() {
-		case reflect.Bool:
-			fieldValue.SetBool(true)
-		case reflect.Uint64:
-			var num uint64
-			num, err = decodeUint64(v)
-			if err != nil {
-				return
-			}
-			fieldValue.SetUint(num)
-		case reflect.Slice:
-			switch fieldValue.Type().Elem().Kind() {
-			case reflect.Uint8:
-				fieldValue.SetBytes(v)
-			case reflect.Slice:
-				fallthrough
-			case reflect.Ptr:
-				fallthrough
-			case reflect.Struct:
-				elem := reflect.New(fieldValue.Type().Elem()).Elem()
-				if fieldValue.Type().Elem().Kind() == reflect.Slice {
-					elem.SetBytes(v)
-				} else {
-					err = decodeStruct(bytes.NewBuffer(v), elem)
-					if err != nil {
-						return
-					}
-				}
-				fieldValue.Set(reflect.Append(fieldValue, elem))
-				i--
-			default:
-				err = errors.New("invalid slice type: " + fieldValue.Type().String())
-				return
-			}
-		case reflect.String:
-			fieldValue.SetString(string(v))
-		case reflect.Ptr:
-			fallthrough
-		case reflect.Struct:
-			err = decodeStruct(bytes.NewBuffer(v), fieldValue)
-			if err != nil {
-				return
-			}
-		default:
-			err = errors.New("invalid type: " + fieldValue.Kind().String())
+			err = errors.New(fmt.Sprintf("type does not match: %d != %d", valType, t))
 			return
+		}
+		readNext = true
+		err = decode(fieldValue, v)
+		if err != nil {
+			return
+		}
+		// continue match if not just []byte
+		if fieldValue.Kind() == reflect.Slice && fieldValue.Type().Elem().Kind() != reflect.Uint8 {
+			i--
 		}
 	}
 	return

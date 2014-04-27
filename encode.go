@@ -11,18 +11,9 @@ import (
 	"strings"
 )
 
-func Marshal(i interface{}, rootType uint64) (raw []byte, err error) {
+func Marshal(i interface{}, valType uint64) (raw []byte, err error) {
 	buf := new(bytes.Buffer)
-	WriteBytes(buf, rootType)
-	structValue := reflect.ValueOf(i)
-	if structValue.Kind() == reflect.Ptr {
-		structValue = structValue.Elem()
-	}
-	if structValue.Kind() != reflect.Struct {
-		err = errors.New("invalid type: " + structValue.Kind().String())
-		return
-	}
-	err = encodeStruct(buf, structValue)
+	err = encode(buf, reflect.ValueOf(i), valType)
 	if err != nil {
 		return
 	}
@@ -127,6 +118,55 @@ func zero(v reflect.Value) bool {
 	return false
 }
 
+func encode(buf *bytes.Buffer, value reflect.Value, valType uint64) (err error) {
+	if value.Kind() != reflect.Slice {
+		WriteBytes(buf, valType)
+	}
+	switch value.Kind() {
+	case reflect.Bool:
+		// no length
+		WriteBytes(buf, 0)
+	case reflect.Uint64:
+		err = encodeUint64(buf, value.Uint())
+		if err != nil {
+			return
+		}
+	case reflect.Slice:
+		switch value.Type().Elem().Kind() {
+		case reflect.Uint8:
+			WriteBytes(buf, valType)
+			err = encodeBytes(buf, value.Bytes())
+			if err != nil {
+				return
+			}
+		default:
+			for j := 0; j < value.Len(); j++ {
+				err = encode(buf, value.Index(j), valType)
+				if err != nil {
+					return
+				}
+			}
+		}
+	case reflect.String:
+		err = encodeString(buf, value.String())
+		if err != nil {
+			return
+		}
+	case reflect.Ptr:
+		value = value.Elem()
+		fallthrough
+	case reflect.Struct:
+		err = encodeStruct(buf, value)
+		if err != nil {
+			return
+		}
+	default:
+		err = errors.New("invalid type: " + value.Kind().String())
+		return
+	}
+	return
+}
+
 func encodeField(buf *bytes.Buffer, structValue reflect.Value, index []int) (err error) {
 	for _, i := range index {
 		fieldValue := structValue.Field(i)
@@ -138,59 +178,8 @@ func encodeField(buf *bytes.Buffer, structValue reflect.Value, index []int) (err
 		if err != nil {
 			return
 		}
-		WriteBytes(buf, valType)
-		switch fieldValue.Kind() {
-		case reflect.Bool:
-			// no length
-			WriteBytes(buf, 0)
-		case reflect.Uint64:
-			err = encodeUint64(buf, fieldValue.Uint())
-			if err != nil {
-				return
-			}
-		case reflect.Slice:
-			switch fieldValue.Type().Elem().Kind() {
-			case reflect.Uint8:
-				err = encodeBytes(buf, fieldValue.Bytes())
-				if err != nil {
-					return
-				}
-			case reflect.Slice:
-				fallthrough
-			case reflect.Ptr:
-				fallthrough
-			case reflect.Struct:
-				for j := 0; j < fieldValue.Len(); j++ {
-					if fieldValue.Index(j).Kind() == reflect.Slice {
-						err = encodeBytes(buf, fieldValue.Index(j).Bytes())
-					} else {
-						err = encodeStruct(buf, fieldValue.Index(j))
-					}
-					if err != nil {
-						return
-					}
-					if j != fieldValue.Len()-1 {
-						WriteBytes(buf, valType)
-					}
-				}
-			default:
-				err = errors.New("invalid slice type: " + fieldValue.Type().String())
-				return
-			}
-		case reflect.String:
-			err = encodeString(buf, fieldValue.String())
-			if err != nil {
-				return
-			}
-		case reflect.Ptr:
-			fallthrough
-		case reflect.Struct:
-			err = encodeStruct(buf, fieldValue)
-			if err != nil {
-				return
-			}
-		default:
-			err = errors.New("invalid type: " + fieldValue.Kind().String())
+		err = encode(buf, fieldValue, valType)
+		if err != nil {
 			return
 		}
 	}
