@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"math"
 	"reflect"
 	"strconv"
@@ -67,8 +68,14 @@ func encodeBytes(buf *bytes.Buffer, v []byte) (err error) {
 	return
 }
 
-func Type(v reflect.Value, i int) (uint64, error) {
-	return strconv.ParseUint(strings.TrimSuffix(v.Type().Field(i).Tag.Get("tlv"), ",-"), 10, 64)
+func Type(v reflect.Value, i int) (u uint64, err error) {
+	s := strings.TrimSuffix(v.Type().Field(i).Tag.Get("tlv"), ",-")
+	if len(s) == 0 {
+		err = errors.New(fmt.Sprintf("type not found: %s %s", v.Type().Name(), v.Type().Field(i).Name))
+		return
+	}
+	u, err = strconv.ParseUint(s, 10, 64)
+	return
 }
 
 func optional(v reflect.Value, i int) bool {
