@@ -156,7 +156,7 @@ func decodeStruct(buf *bytes.Buffer, structValue reflect.Value) (err error) {
 		}
 		fieldValue := structValue.Field(i)
 		var valType uint64
-		valType, err = typeValue(structValue, i)
+		valType, err = Type(structValue, i)
 		if err != nil {
 			return
 		}

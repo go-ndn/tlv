@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"hash"
 	"math"
 	"reflect"
 	"strconv"
@@ -18,25 +17,6 @@ func Marshal(i interface{}, valType uint64) (raw []byte, err error) {
 		return
 	}
 	raw = buf.Bytes()
-	return
-}
-
-func Hash(i interface{}, hasher hash.Hash, index []int) (sum []byte, err error) {
-	buf := new(bytes.Buffer)
-	structValue := reflect.ValueOf(i)
-	if structValue.Kind() == reflect.Ptr {
-		structValue = structValue.Elem()
-	}
-	if structValue.Kind() != reflect.Struct {
-		err = errors.New("invalid type: " + structValue.Kind().String())
-		return
-	}
-	err = encodeField(buf, structValue, index)
-	if err != nil {
-		return
-	}
-	hasher.Write(buf.Bytes())
-	sum = hasher.Sum(nil)
 	return
 }
 
@@ -87,7 +67,7 @@ func encodeBytes(buf *bytes.Buffer, v []byte) (err error) {
 	return
 }
 
-func typeValue(v reflect.Value, i int) (uint64, error) {
+func Type(v reflect.Value, i int) (uint64, error) {
 	return strconv.ParseUint(strings.TrimSuffix(v.Type().Field(i).Tag.Get("tlv"), ",-"), 10, 64)
 }
 
@@ -167,34 +147,22 @@ func encode(buf *bytes.Buffer, value reflect.Value, valType uint64) (err error) 
 	return
 }
 
-func encodeField(buf *bytes.Buffer, structValue reflect.Value, index []int) (err error) {
-	for _, i := range index {
+func encodeStruct(buf *bytes.Buffer, structValue reflect.Value) (err error) {
+	childBuf := new(bytes.Buffer)
+	for i := 0; i < structValue.NumField(); i++ {
 		fieldValue := structValue.Field(i)
 		if optional(structValue, i) && zero(fieldValue) {
 			continue
 		}
 		var valType uint64
-		valType, err = typeValue(structValue, i)
+		valType, err = Type(structValue, i)
 		if err != nil {
 			return
 		}
-		err = encode(buf, fieldValue, valType)
+		err = encode(childBuf, fieldValue, valType)
 		if err != nil {
 			return
 		}
-	}
-	return
-}
-
-func encodeStruct(buf *bytes.Buffer, structValue reflect.Value) (err error) {
-	childBuf := new(bytes.Buffer)
-	index := []int{}
-	for i := 0; i < structValue.NumField(); i++ {
-		index = append(index, i)
-	}
-	err = encodeField(childBuf, structValue, index)
-	if err != nil {
-		return
 	}
 	WriteBytes(buf, uint64(childBuf.Len()))
 	buf.ReadFrom(childBuf)
