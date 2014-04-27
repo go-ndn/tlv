@@ -11,15 +11,22 @@ import (
 
 func Unmarshal(raw []byte, i interface{}, valType uint64) (err error) {
 	buf := bytes.NewBuffer(raw)
-	t, v, err := readTLV(buf)
-	if err != nil {
-		return
+	for buf.Len() != 0 {
+		var t uint64
+		var v []byte
+		t, v, err = readTLV(buf)
+		if err != nil {
+			return
+		}
+		if valType != t {
+			err = errors.New(fmt.Sprintf("type does not match: %d != %d", valType, t))
+			return
+		}
+		err = decode(reflect.ValueOf(i), v)
+		if err != nil {
+			return
+		}
 	}
-	if valType != t {
-		err = errors.New(fmt.Sprintf("type does not match: %d != %d", valType, t))
-		return
-	}
-	err = decode(reflect.ValueOf(i), v)
 	return
 }
 
