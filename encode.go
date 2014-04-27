@@ -96,16 +96,8 @@ func encodeBytes(buf *bytes.Buffer, v []byte) (err error) {
 	return
 }
 
-func typeValue(v reflect.Value, i int) (t []uint64, err error) {
-	for _, part := range strings.Split(strings.TrimSuffix(v.Type().Field(i).Tag.Get("tlv"), ",-"), ",") {
-		var i uint64
-		i, err = strconv.ParseUint(part, 10, 64)
-		if err != nil {
-			return
-		}
-		t = append(t, i)
-	}
-	return
+func typeValue(v reflect.Value, i int) (uint64, error) {
+	return strconv.ParseUint(strings.TrimSuffix(v.Type().Field(i).Tag.Get("tlv"), ",-"), 10, 64)
 }
 
 func optional(v reflect.Value, i int) bool {
@@ -141,12 +133,12 @@ func encodeField(buf *bytes.Buffer, structValue reflect.Value, index []int) (err
 		if optional(structValue, i) && zero(fieldValue) {
 			continue
 		}
-		var valType []uint64
+		var valType uint64
 		valType, err = typeValue(structValue, i)
 		if err != nil {
 			return
 		}
-		WriteBytes(buf, valType[0])
+		WriteBytes(buf, valType)
 		switch fieldValue.Kind() {
 		case reflect.Bool:
 			// no length
@@ -158,17 +150,6 @@ func encodeField(buf *bytes.Buffer, structValue reflect.Value, index []int) (err
 			}
 		case reflect.Slice:
 			switch fieldValue.Type().Elem().Kind() {
-			case reflect.Slice:
-				sliceBuf := new(bytes.Buffer)
-				for j := 0; j < fieldValue.Len(); j++ {
-					WriteBytes(sliceBuf, valType[1])
-					err = encodeBytes(sliceBuf, fieldValue.Index(j).Bytes())
-					if err != nil {
-						return
-					}
-				}
-				WriteBytes(buf, uint64(sliceBuf.Len()))
-				buf.ReadFrom(sliceBuf)
 			case reflect.Uint8:
 				err = encodeBytes(buf, fieldValue.Bytes())
 				if err != nil {
@@ -183,7 +164,7 @@ func encodeField(buf *bytes.Buffer, structValue reflect.Value, index []int) (err
 						return
 					}
 					if j != fieldValue.Len()-1 {
-						WriteBytes(buf, valType[0])
+						WriteBytes(buf, valType)
 					}
 				}
 			default:

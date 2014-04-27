@@ -15,13 +15,11 @@ func TestEncoding(t *testing.T) {
 		String     string      `tlv:"2,-"`
 		Bytes      []byte      `tlv:"3"`
 		Containers []Container `tlv:"5"`
-		Nested     [][]byte    `tlv:"4,10"`
 	}
 	v1 := Test{
-		Num: 123,
-		//String: "hello",
+		Num:    123,
+		String: "hello",
 		Bytes:  []byte{0x1, 0x2, 0x3},
-		Nested: [][]byte{{0x1, 0x2, 0x3}, {0x1, 0x2, 0x3}},
 		Containers: []Container{
 			{V: 100},
 			{V: 200},

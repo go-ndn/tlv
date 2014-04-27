@@ -87,6 +87,22 @@ func decodeUint64(raw []byte) (v uint64, err error) {
 	return
 }
 
+func canIgnoreError(structValue reflect.Value, i int) bool {
+	if optional(structValue, i) {
+		return true
+	}
+	if structValue.Field(i).Kind() != reflect.Slice {
+		return false
+	}
+	switch structValue.Field(i).Type().Elem().Kind() {
+	case reflect.Struct:
+		fallthrough
+	case reflect.Ptr:
+		return true
+	}
+	return false
+}
+
 func decodeStruct(buf *bytes.Buffer, structValue reflect.Value) (err error) {
 	var t uint64
 	var v []byte
@@ -96,9 +112,8 @@ func decodeStruct(buf *bytes.Buffer, structValue reflect.Value) (err error) {
 		if ok {
 			t, v, err = readTLV(buf)
 			if err != nil {
-				// eof check the remaining is optional
 				for ; i < structValue.NumField(); i++ {
-					if !optional(structValue, i) {
+					if !canIgnoreError(structValue, i) {
 						return
 					}
 				}
@@ -107,17 +122,16 @@ func decodeStruct(buf *bytes.Buffer, structValue reflect.Value) (err error) {
 			}
 		}
 		fieldValue := structValue.Field(i)
-		var valType []uint64
+		var valType uint64
 		valType, err = typeValue(structValue, i)
 		if err != nil {
 			return
 		}
 		// type does not match
-		if valType[0] != t {
+		if valType != t {
 			// 1. optional
 			// 2. []struct
-			if optional(structValue, i) ||
-				(fieldValue.Kind() == reflect.Slice && (fieldValue.Type().Elem().Kind() == reflect.Struct || fieldValue.Type().Elem().Kind() == reflect.Ptr)) {
+			if canIgnoreError(structValue, i) {
 				ok = false
 				continue
 			} else {
@@ -139,21 +153,6 @@ func decodeStruct(buf *bytes.Buffer, structValue reflect.Value) (err error) {
 			fieldValue.SetUint(num)
 		case reflect.Slice:
 			switch fieldValue.Type().Elem().Kind() {
-			case reflect.Slice:
-				sliceBuf := bytes.NewBuffer(v)
-				for sliceBuf.Len() != 0 {
-					var t uint64
-					var v []byte
-					t, v, err = readTLV(sliceBuf)
-					if err != nil {
-						return
-					}
-					if valType[1] != t {
-						err = errors.New(fmt.Sprintf("subtype does not match: %d != %d", valType, t))
-						return
-					}
-					fieldValue.Set(reflect.Append(fieldValue, reflect.ValueOf(v)))
-				}
 			case reflect.Uint8:
 				fieldValue.SetBytes(v)
 			case reflect.Ptr:
