@@ -95,6 +95,8 @@ func canIgnoreError(structValue reflect.Value, i int) bool {
 		return false
 	}
 	switch structValue.Field(i).Type().Elem().Kind() {
+	case reflect.Slice:
+		fallthrough
 	case reflect.Struct:
 		fallthrough
 	case reflect.Ptr:
@@ -155,16 +157,19 @@ func decodeStruct(buf *bytes.Buffer, structValue reflect.Value) (err error) {
 			switch fieldValue.Type().Elem().Kind() {
 			case reflect.Uint8:
 				fieldValue.SetBytes(v)
+			case reflect.Slice:
+				fallthrough
 			case reflect.Ptr:
 				fallthrough
 			case reflect.Struct:
-				elem := reflect.New(fieldValue.Type().Elem())
-				if fieldValue.Type().Elem().Kind() == reflect.Struct {
-					elem = elem.Elem()
-				}
-				err = decodeStruct(bytes.NewBuffer(v), elem)
-				if err != nil {
-					return
+				elem := reflect.New(fieldValue.Type().Elem()).Elem()
+				if fieldValue.Type().Elem().Kind() == reflect.Slice {
+					elem.SetBytes(v)
+				} else {
+					err = decodeStruct(bytes.NewBuffer(v), elem)
+					if err != nil {
+						return
+					}
 				}
 				fieldValue.Set(reflect.Append(fieldValue, elem))
 				i--

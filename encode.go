@@ -155,11 +155,17 @@ func encodeField(buf *bytes.Buffer, structValue reflect.Value, index []int) (err
 				if err != nil {
 					return
 				}
+			case reflect.Slice:
+				fallthrough
 			case reflect.Ptr:
 				fallthrough
 			case reflect.Struct:
 				for j := 0; j < fieldValue.Len(); j++ {
-					err = encodeStruct(buf, fieldValue.Index(j))
+					if fieldValue.Index(j).Kind() == reflect.Slice {
+						err = encodeBytes(buf, fieldValue.Index(j).Bytes())
+					} else {
+						err = encodeStruct(buf, fieldValue.Index(j))
+					}
 					if err != nil {
 						return
 					}
