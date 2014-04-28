@@ -136,7 +136,7 @@ func encodeStruct(buf *bytes.Buffer, structValue reflect.Value) (err error) {
 	childBuf := new(bytes.Buffer)
 	for i := 0; i < structValue.NumField(); i++ {
 		fieldValue := structValue.Field(i)
-		if optional(structValue, i) && fieldValue.Interface() == reflect.Zero(fieldValue.Type()).Interface() {
+		if optional(structValue, i) && reflect.DeepEqual(fieldValue.Interface(), reflect.Zero(fieldValue.Type()).Interface()) {
 			continue
 		}
 		var valType uint64
