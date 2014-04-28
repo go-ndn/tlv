@@ -122,8 +122,19 @@ func decode(value reflect.Value, v []byte) (err error) {
 	case reflect.String:
 		value.SetString(string(v))
 	case reflect.Ptr:
-		value = value.Elem()
-		fallthrough
+		if value.CanSet() {
+			elem := reflect.New(value.Type().Elem())
+			err = decode(elem.Elem(), v)
+			if err != nil {
+				return
+			}
+			value.Set(elem)
+		} else {
+			err = decode(value.Elem(), v)
+			if err != nil {
+				return
+			}
+		}
 	case reflect.Struct:
 		err = decodeStruct(bytes.NewBuffer(v), value)
 		if err != nil {

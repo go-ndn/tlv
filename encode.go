@@ -80,38 +80,14 @@ func optional(v reflect.Value, i int) bool {
 	return strings.HasSuffix(v.Type().Field(i).Tag.Get("tlv"), ",-")
 }
 
-func zero(v reflect.Value) bool {
-	switch v.Kind() {
-	case reflect.Bool:
-		return v.Bool() == false
-	case reflect.Uint64:
-		return v.Uint() == 0
-	case reflect.Ptr:
-		fallthrough
-	case reflect.Slice:
-		return v.IsNil()
-	case reflect.String:
-		return v.String() == ""
-	case reflect.Struct:
-		for i := 0; i < v.NumField(); i++ {
-			if !zero(v.Field(i)) {
-				return false
-			}
-		}
-		return true
-	}
-	return false
-}
-
 func encode(buf *bytes.Buffer, value reflect.Value, valType uint64) (err error) {
-	if value.Kind() != reflect.Slice {
-		WriteBytes(buf, valType)
-	}
 	switch value.Kind() {
 	case reflect.Bool:
+		WriteBytes(buf, valType)
 		// no length
 		WriteBytes(buf, 0)
 	case reflect.Uint64:
+		WriteBytes(buf, valType)
 		err = encodeUint64(buf, value.Uint())
 		if err != nil {
 			return
@@ -133,14 +109,18 @@ func encode(buf *bytes.Buffer, value reflect.Value, valType uint64) (err error) 
 			}
 		}
 	case reflect.String:
+		WriteBytes(buf, valType)
 		err = encodeString(buf, value.String())
 		if err != nil {
 			return
 		}
 	case reflect.Ptr:
-		value = value.Elem()
-		fallthrough
+		err = encode(buf, value.Elem(), valType)
+		if err != nil {
+			return
+		}
 	case reflect.Struct:
+		WriteBytes(buf, valType)
 		err = encodeStruct(buf, value)
 		if err != nil {
 			return
@@ -156,7 +136,7 @@ func encodeStruct(buf *bytes.Buffer, structValue reflect.Value) (err error) {
 	childBuf := new(bytes.Buffer)
 	for i := 0; i < structValue.NumField(); i++ {
 		fieldValue := structValue.Field(i)
-		if optional(structValue, i) && zero(fieldValue) {
+		if optional(structValue, i) && fieldValue.Interface() == reflect.Zero(fieldValue.Type()).Interface() {
 			continue
 		}
 		var valType uint64

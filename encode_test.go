@@ -15,6 +15,7 @@ func TestEncoding(t *testing.T) {
 		String     string      `tlv:"2,-"`
 		Bytes      []byte      `tlv:"3"`
 		Containers []Container `tlv:"5"`
+		Ptrs       []*uint64   `tlv:"7"`
 	}
 	v1 := Test{
 		Num:    123,
@@ -23,6 +24,10 @@ func TestEncoding(t *testing.T) {
 		Containers: []Container{
 			{V: 100},
 			{V: 200},
+		},
+		Ptrs: []*uint64{
+			new(uint64),
+			new(uint64),
 		},
 	}
 	b, err := Marshal(v1, 9)
