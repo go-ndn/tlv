@@ -69,7 +69,7 @@ func encodeBytes(buf *bytes.Buffer, v []byte) (err error) {
 }
 
 func Type(v reflect.Value, i int) (u uint64, err error) {
-	u, err = strconv.ParseUint(strings.TrimSuffix(v.Type().Field(i).Tag.Get("tlv"), ",-"), 10, 64)
+	u, err = strconv.ParseUint(strings.TrimSuffix(v.Type().Field(i).Tag.Get("tlv"), "?"), 10, 64)
 	if err != nil {
 		err = errors.New(fmt.Sprintf("type not found: %s %s", v.Type().Name(), v.Type().Field(i).Name))
 	}
@@ -77,7 +77,7 @@ func Type(v reflect.Value, i int) (u uint64, err error) {
 }
 
 func optional(v reflect.Value, i int) bool {
-	return strings.HasSuffix(v.Type().Field(i).Tag.Get("tlv"), ",-")
+	return strings.HasSuffix(v.Type().Field(i).Tag.Get("tlv"), "?")
 }
 
 func encode(buf *bytes.Buffer, value reflect.Value, valType uint64) (err error) {
