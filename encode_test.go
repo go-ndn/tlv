@@ -12,7 +12,7 @@ func TestEncoding(t *testing.T) {
 	}
 	type Test struct {
 		Num        uint64      `tlv:"1"`
-		String     string      `tlv:"2,-"`
+		String     string      `tlv:"2?"`
 		Bytes      []byte      `tlv:"3"`
 		Containers []Container `tlv:"5"`
 		Ptrs       []*uint64   `tlv:"7"`
