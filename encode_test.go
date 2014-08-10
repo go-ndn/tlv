@@ -30,7 +30,8 @@ func TestEncoding(t *testing.T) {
 			new(uint64),
 		},
 	}
-	b, err := Marshal(v1, 9)
+	b := new(bytes.Buffer)
+	err := Marshal(b, v1, 9)
 	if err != nil {
 		t.Error(err)
 	}
@@ -42,7 +43,8 @@ func TestEncoding(t *testing.T) {
 		t.Error(err)
 	}
 	spew.Dump(v2)
-	b2, err := Marshal(v2, 9)
+	b2 := new(bytes.Buffer)
+	err = Marshal(b2, v2, 9)
 	if err != nil {
 		t.Error(err)
 	}

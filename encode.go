@@ -11,15 +11,12 @@ import (
 	"strings"
 )
 
-func Marshal(i interface{}, valType uint64) (buf *bytes.Buffer, err error) {
-	buf = new(bytes.Buffer)
-	err = encode(buf, reflect.ValueOf(i), valType)
-	return
+func Marshal(buf *bytes.Buffer, i interface{}, valType uint64) error {
+	return encode(buf, reflect.ValueOf(i), valType)
 }
 
 // return data bytes, * marked field is skipped
-func Data(i interface{}) (buf *bytes.Buffer, err error) {
-	buf = new(bytes.Buffer)
+func Data(buf *bytes.Buffer, i interface{}) (err error) {
 	structValue := reflect.Indirect(reflect.ValueOf(i))
 	if structValue.Kind() != reflect.Struct {
 		err = errors.New("not struct")
