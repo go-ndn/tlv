@@ -13,11 +13,11 @@ func Unmarshal(buf *bytes.Buffer, i interface{}, valType uint64) error {
 }
 
 func readTLV(buf *bytes.Buffer) (t uint64, v *bytes.Buffer, err error) {
-	t, err = ReadBytes(buf)
+	t, err = readVarNum(buf)
 	if err != nil {
 		return
 	}
-	l, err := ReadBytes(buf)
+	l, err := readVarNum(buf)
 	if err != nil {
 		return
 	}
@@ -25,7 +25,7 @@ func readTLV(buf *bytes.Buffer) (t uint64, v *bytes.Buffer, err error) {
 	return
 }
 
-func ReadBytes(buf *bytes.Buffer) (v uint64, err error) {
+func readVarNum(buf *bytes.Buffer) (v uint64, err error) {
 	b, err := buf.ReadByte()
 	if err != nil {
 		return
@@ -112,8 +112,8 @@ func decode(buf *bytes.Buffer, value reflect.Value, valType uint64) (err error) 
 		err = errors.New(fmt.Sprintf("type does not match: %d != %d", valType, t))
 		// recover
 		rec := new(bytes.Buffer)
-		WriteBytes(rec, t)
-		WriteBytes(rec, uint64(v.Len()))
+		writeVarNum(rec, t)
+		writeVarNum(rec, uint64(v.Len()))
 		rec.ReadFrom(v)
 		rec.ReadFrom(buf)
 		*buf = *rec
@@ -152,15 +152,14 @@ func decode(buf *bytes.Buffer, value reflect.Value, valType uint64) (err error) 
 func decodeStruct(buf *bytes.Buffer, structValue reflect.Value) (err error) {
 	for i := 0; i < structValue.NumField(); i++ {
 		fieldValue := structValue.Field(i)
-		var valType uint64
-		valType, err = Type(structValue, i)
+		var tag *structTag
+		tag, err = parseTag(structValue, i)
 		if err != nil {
 			return
 		}
-
-		err = decode(buf, fieldValue, valType)
+		err = decode(buf, fieldValue, tag.Type)
 		if err != nil {
-			if optional(structValue, i) {
+			if tag.Optional {
 				err = nil
 			} else {
 				return
