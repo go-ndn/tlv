@@ -21,6 +21,10 @@ func Marshal(i interface{}, valType uint64) (buf *bytes.Buffer, err error) {
 func Data(i interface{}) (buf *bytes.Buffer, err error) {
 	buf = new(bytes.Buffer)
 	structValue := reflect.Indirect(reflect.ValueOf(i))
+	if structValue.Kind() != reflect.Struct {
+		err = errors.New("not struct")
+		return
+	}
 	for i := 0; i < structValue.NumField(); i++ {
 		fieldValue := structValue.Field(i)
 		var tag *structTag
