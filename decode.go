@@ -1,18 +1,20 @@
 package tlv
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"reflect"
 )
 
-func Unmarshal(buf *bytes.Buffer, i interface{}, valType uint64) error {
+func Unmarshal(buf PeekReader, i interface{}, valType uint64) error {
 	return decode(buf, reflect.ValueOf(i), valType)
 }
 
-func readTLV(buf *bytes.Buffer) (t uint64, v *bytes.Buffer, err error) {
+func readTLV(buf Reader) (t uint64, v []byte, err error) {
 	t, err = readVarNum(buf)
 	if err != nil {
 		return
@@ -21,16 +23,18 @@ func readTLV(buf *bytes.Buffer) (t uint64, v *bytes.Buffer, err error) {
 	if err != nil {
 		return
 	}
-	v = bytes.NewBuffer(buf.Next(int(l)))
+	v = make([]byte, int(l))
+	_, err = io.ReadFull(buf, v)
 	return
 }
 
-func readVarNum(buf *bytes.Buffer) (v uint64, err error) {
-	b, err := buf.ReadByte()
+func readVarNum(buf Reader) (v uint64, err error) {
+	b := make([]byte, 1)
+	_, err = io.ReadFull(buf, b)
 	if err != nil {
 		return
 	}
-	switch b {
+	switch b[0] {
 	case 0xFF:
 		err = binary.Read(buf, binary.BigEndian, &v)
 	case 0xFE:
@@ -42,7 +46,7 @@ func readVarNum(buf *bytes.Buffer) (v uint64, err error) {
 		err = binary.Read(buf, binary.BigEndian, &v16)
 		v = uint64(v16)
 	default:
-		v = uint64(b)
+		v = uint64(b[0])
 	}
 	return
 }
@@ -67,7 +71,14 @@ func decodeUint64(buf *bytes.Buffer) (v uint64, err error) {
 	return
 }
 
-func decode(buf *bytes.Buffer, value reflect.Value, valType uint64) (err error) {
+func peekType(buf PeekReader) (t uint64, err error) {
+	// at most 1 + 8 bytes
+	b, _ := buf.Peek(9)
+	t, err = readVarNum(bytes.NewBuffer(b))
+	return
+}
+
+func decode(buf PeekReader, value reflect.Value, valType uint64) (err error) {
 	switch value.Kind() {
 	case reflect.Ptr:
 		if value.CanSet() {
@@ -102,21 +113,18 @@ func decode(buf *bytes.Buffer, value reflect.Value, valType uint64) (err error) 
 			return
 		}
 	}
-	var t uint64
-	var v *bytes.Buffer
-	t, v, err = readTLV(buf)
+
+	t, err := peekType(buf)
 	if err != nil {
 		return
 	}
 	if t != valType {
 		err = errors.New(fmt.Sprintf("type does not match: %d != %d", valType, t))
-		// recover
-		rec := new(bytes.Buffer)
-		writeVarNum(rec, t)
-		writeVarNum(rec, uint64(v.Len()))
-		rec.ReadFrom(v)
-		rec.ReadFrom(buf)
-		*buf = *rec
+		return
+	}
+
+	_, v, err := readTLV(buf)
+	if err != nil {
 		return
 	}
 
@@ -125,7 +133,7 @@ func decode(buf *bytes.Buffer, value reflect.Value, valType uint64) (err error) 
 		value.SetBool(true)
 	case reflect.Uint64:
 		var num uint64
-		num, err = decodeUint64(v)
+		num, err = decodeUint64(bytes.NewBuffer(v))
 		if err != nil {
 			return
 		}
@@ -133,12 +141,12 @@ func decode(buf *bytes.Buffer, value reflect.Value, valType uint64) (err error) 
 	case reflect.Slice:
 		switch value.Type().Elem().Kind() {
 		case reflect.Uint8:
-			value.SetBytes(v.Bytes())
+			value.SetBytes(v)
 		}
 	case reflect.String:
-		value.SetString(v.String())
+		value.SetString(string(v))
 	case reflect.Struct:
-		err = decodeStruct(v, value)
+		err = decodeStruct(bufio.NewReader(bytes.NewBuffer(v)), value)
 		if err != nil {
 			return
 		}
@@ -149,7 +157,7 @@ func decode(buf *bytes.Buffer, value reflect.Value, valType uint64) (err error) 
 	return
 }
 
-func decodeStruct(buf *bytes.Buffer, structValue reflect.Value) (err error) {
+func decodeStruct(buf PeekReader, structValue reflect.Value) (err error) {
 	for i := 0; i < structValue.NumField(); i++ {
 		fieldValue := structValue.Field(i)
 		var tag *structTag

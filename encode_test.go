@@ -1,8 +1,10 @@
 package tlv
 
 import (
+	"bufio"
 	"bytes"
 	"github.com/davecgh/go-spew/spew"
+	"io/ioutil"
 	"testing"
 )
 
@@ -30,25 +32,31 @@ func TestEncoding(t *testing.T) {
 			new(uint64),
 		},
 	}
-	b := new(bytes.Buffer)
-	err := Marshal(b, v1, 9)
+	buf := new(bytes.Buffer)
+	err := Marshal(buf, v1, 9)
 	if err != nil {
 		t.Error(err)
+		return
 	}
-	spew.Dump(b.Bytes())
-	saved := b.Bytes()
+	b, _ := ioutil.ReadAll(buf)
+	spew.Dump(b)
 	v2 := Test{}
-	err = Unmarshal(b, &v2, 9)
+	err = Unmarshal(bufio.NewReader(bytes.NewBuffer(b)), &v2, 9)
 	if err != nil {
 		t.Error(err)
+		return
 	}
+	spew.Dump(v1)
 	spew.Dump(v2)
-	b2 := new(bytes.Buffer)
-	err = Marshal(b2, v2, 9)
+	buf2 := new(bytes.Buffer)
+	err = Marshal(buf2, v2, 9)
 	if err != nil {
 		t.Error(err)
+		return
 	}
-	if !bytes.Equal(saved, b2.Bytes()) {
-		t.Error("not equal", saved, b2.Bytes())
+
+	b2, _ := ioutil.ReadAll(buf2)
+	if !bytes.Equal(b, b2) {
+		t.Error("not equal", b, b2)
 	}
 }
