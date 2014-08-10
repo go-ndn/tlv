@@ -5,32 +5,14 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	//"io"
 	"reflect"
 )
 
-func Unmarshal(raw []byte, i interface{}, valType uint64) (err error) {
-	buf := bytes.NewBuffer(raw)
-	for buf.Len() != 0 {
-		var t uint64
-		var v []byte
-		t, v, err = readTLV(buf)
-		if err != nil {
-			return
-		}
-		if valType != t {
-			err = errors.New(fmt.Sprintf("type does not match: %d != %d", valType, t))
-			return
-		}
-		err = decode(reflect.ValueOf(i), v)
-		if err != nil {
-			return
-		}
-	}
-	return
+func Unmarshal(buf *bytes.Buffer, i interface{}, valType uint64) error {
+	return decode(buf, reflect.ValueOf(i), valType)
 }
 
-func readTLV(buf *bytes.Buffer) (t uint64, v []byte, err error) {
+func readTLV(buf *bytes.Buffer) (t uint64, v *bytes.Buffer, err error) {
 	t, err = ReadBytes(buf)
 	if err != nil {
 		return
@@ -39,7 +21,7 @@ func readTLV(buf *bytes.Buffer) (t uint64, v []byte, err error) {
 	if err != nil {
 		return
 	}
-	v = buf.Next(int(l))
+	v = bytes.NewBuffer(buf.Next(int(l)))
 	return
 }
 
@@ -65,9 +47,8 @@ func ReadBytes(buf *bytes.Buffer) (v uint64, err error) {
 	return
 }
 
-func decodeUint64(raw []byte) (v uint64, err error) {
-	buf := bytes.NewBuffer(raw)
-	switch len(raw) {
+func decodeUint64(buf *bytes.Buffer) (v uint64, err error) {
+	switch buf.Len() {
 	case 8:
 		err = binary.Read(buf, binary.BigEndian, &v)
 	case 4:
@@ -86,17 +67,59 @@ func decodeUint64(raw []byte) (v uint64, err error) {
 	return
 }
 
-func canIgnoreError(structValue reflect.Value, i int) bool {
-	if optional(structValue, i) {
-		return true
+func decode(buf *bytes.Buffer, value reflect.Value, valType uint64) (err error) {
+	switch value.Kind() {
+	case reflect.Ptr:
+		if value.CanSet() {
+			// uninitialized
+			elem := reflect.New(value.Type().Elem())
+			err = decode(buf, elem.Elem(), valType)
+			if err != nil {
+				return
+			}
+			value.Set(elem)
+		} else {
+			err = decode(buf, value.Elem(), valType)
+			if err != nil {
+				return
+			}
+		}
+		return
+	case reflect.Slice:
+		switch value.Type().Elem().Kind() {
+		case reflect.Uint8:
+		default:
+			for {
+				elem := reflect.New(value.Type().Elem()).Elem()
+				err = decode(buf, elem, valType)
+				if err != nil {
+					// try and fail approach
+					err = nil
+					break
+				}
+				value.Set(reflect.Append(value, elem))
+			}
+			return
+		}
 	}
-	if structValue.Field(i).Kind() != reflect.Slice {
-		return false
+	var t uint64
+	var v *bytes.Buffer
+	t, v, err = readTLV(buf)
+	if err != nil {
+		return
 	}
-	return structValue.Field(i).Type().Elem().Kind() != reflect.Uint8
-}
+	if t != valType {
+		err = errors.New(fmt.Sprintf("type does not match: %d != %d", valType, t))
+		// recover
+		rec := new(bytes.Buffer)
+		WriteBytes(rec, t)
+		WriteBytes(rec, uint64(v.Len()))
+		rec.ReadFrom(v)
+		rec.ReadFrom(buf)
+		*buf = *rec
+		return
+	}
 
-func decode(value reflect.Value, v []byte) (err error) {
 	switch value.Kind() {
 	case reflect.Bool:
 		value.SetBool(true)
@@ -110,33 +133,12 @@ func decode(value reflect.Value, v []byte) (err error) {
 	case reflect.Slice:
 		switch value.Type().Elem().Kind() {
 		case reflect.Uint8:
-			value.SetBytes(v)
-		default:
-			elem := reflect.New(value.Type().Elem()).Elem()
-			err = decode(elem, v)
-			if err != nil {
-				return
-			}
-			value.Set(reflect.Append(value, elem))
+			value.SetBytes(v.Bytes())
 		}
 	case reflect.String:
-		value.SetString(string(v))
-	case reflect.Ptr:
-		if value.CanSet() {
-			elem := reflect.New(value.Type().Elem())
-			err = decode(elem.Elem(), v)
-			if err != nil {
-				return
-			}
-			value.Set(elem)
-		} else {
-			err = decode(value.Elem(), v)
-			if err != nil {
-				return
-			}
-		}
+		value.SetString(v.String())
 	case reflect.Struct:
-		err = decodeStruct(bytes.NewBuffer(v), value)
+		err = decodeStruct(v, value)
 		if err != nil {
 			return
 		}
@@ -148,48 +150,21 @@ func decode(value reflect.Value, v []byte) (err error) {
 }
 
 func decodeStruct(buf *bytes.Buffer, structValue reflect.Value) (err error) {
-	var t uint64
-	var v []byte
-	readNext := true
 	for i := 0; i < structValue.NumField(); i++ {
-		// read next tlv
-		if readNext {
-			t, v, err = readTLV(buf)
-			if err != nil {
-				for ; i < structValue.NumField(); i++ {
-					if !canIgnoreError(structValue, i) {
-						return
-					}
-				}
-				err = nil
-				return
-			}
-		}
 		fieldValue := structValue.Field(i)
 		var valType uint64
 		valType, err = Type(structValue, i)
 		if err != nil {
 			return
 		}
-		// type does not match
-		if valType != t {
-			// 1. optional
-			// 2. []struct
-			if canIgnoreError(structValue, i) {
-				readNext = false
-				continue
-			}
-			err = errors.New(fmt.Sprintf("type does not match: %d != %d", valType, t))
-			return
-		}
-		readNext = true
-		err = decode(fieldValue, v)
+
+		err = decode(buf, fieldValue, valType)
 		if err != nil {
-			return
-		}
-		// continue match if not just []byte
-		if fieldValue.Kind() == reflect.Slice && fieldValue.Type().Elem().Kind() != reflect.Uint8 {
-			i--
+			if optional(structValue, i) {
+				err = nil
+			} else {
+				return
+			}
 		}
 	}
 	return

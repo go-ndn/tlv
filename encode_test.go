@@ -19,7 +19,7 @@ func TestEncoding(t *testing.T) {
 	}
 	v1 := Test{
 		Num:    123,
-		String: "hello",
+		String: "",
 		Bytes:  []byte{0x1, 0x2, 0x3},
 		Containers: []Container{
 			{V: 100},
@@ -34,7 +34,8 @@ func TestEncoding(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	spew.Dump(b)
+	spew.Dump(b.Bytes())
+	saved := b.Bytes()
 	v2 := Test{}
 	err = Unmarshal(b, &v2, 9)
 	if err != nil {
@@ -45,7 +46,7 @@ func TestEncoding(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if !bytes.Equal(b, b2) {
-		t.Error("not equal", b, b2)
+	if !bytes.Equal(saved, b2.Bytes()) {
+		t.Error("not equal", saved, b2.Bytes())
 	}
 }

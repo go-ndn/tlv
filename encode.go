@@ -11,13 +11,9 @@ import (
 	"strings"
 )
 
-func Marshal(i interface{}, valType uint64) (raw []byte, err error) {
-	buf := new(bytes.Buffer)
+func Marshal(i interface{}, valType uint64) (buf *bytes.Buffer, err error) {
+	buf = new(bytes.Buffer)
 	err = encode(buf, reflect.ValueOf(i), valType)
-	if err != nil {
-		return
-	}
-	raw = buf.Bytes()
 	return
 }
 
