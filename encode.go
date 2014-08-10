@@ -17,9 +17,10 @@ func Marshal(i interface{}, valType uint64) (buf *bytes.Buffer, err error) {
 	return
 }
 
-func ComputeSignature(i interface{}) (buf *bytes.Buffer, err error) {
+// return data bytes, * marked field is skipped
+func Data(i interface{}) (buf *bytes.Buffer, err error) {
 	buf = new(bytes.Buffer)
-	structValue := reflect.ValueOf(i)
+	structValue := reflect.Indirect(reflect.ValueOf(i))
 	for i := 0; i < structValue.NumField(); i++ {
 		fieldValue := structValue.Field(i)
 		var tag *structTag
