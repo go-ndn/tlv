@@ -116,6 +116,7 @@ func decode(buf PeekReader, value reflect.Value, valType uint64) (err error) {
 
 	t, err := peekType(buf)
 	if err != nil {
+		err = errors.New("peek nothing: " + value.Type().String())
 		return
 	}
 	if t != valType {
