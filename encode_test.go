@@ -35,28 +35,25 @@ func TestEncoding(t *testing.T) {
 	buf := new(bytes.Buffer)
 	err := Marshal(buf, v1, 9)
 	if err != nil {
-		t.Error(err)
-		return
+		t.Fatal(err)
 	}
 	b, _ := ioutil.ReadAll(buf)
 	spew.Dump(b)
 	v2 := Test{}
 	err = Unmarshal(bufio.NewReader(bytes.NewBuffer(b)), &v2, 9)
 	if err != nil {
-		t.Error(err)
-		return
+		t.Fatal(err)
 	}
 	spew.Dump(v1)
 	spew.Dump(v2)
 	buf2 := new(bytes.Buffer)
 	err = Marshal(buf2, v2, 9)
 	if err != nil {
-		t.Error(err)
-		return
+		t.Fatal(err)
 	}
 
 	b2, _ := ioutil.ReadAll(buf2)
 	if !bytes.Equal(b, b2) {
-		t.Error("not equal", b, b2)
+		t.Fatal("not equal", b, b2)
 	}
 }
