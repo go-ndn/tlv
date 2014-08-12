@@ -29,7 +29,7 @@ func Data(buf Writer, i interface{}) (err error) {
 		if err != nil {
 			return
 		}
-		if tag.SkipSignature || tag.Optional && reflect.DeepEqual(fieldValue.Interface(), reflect.Zero(fieldValue.Type()).Interface()) {
+		if tag.NotData || tag.Optional && reflect.DeepEqual(fieldValue.Interface(), reflect.Zero(fieldValue.Type()).Interface()) {
 			continue
 		}
 
@@ -89,9 +89,9 @@ func encodeBytes(buf Writer, v []byte) (err error) {
 }
 
 type structTag struct {
-	Type          uint64
-	Optional      bool // ?
-	SkipSignature bool // *
+	Type     uint64
+	Optional bool // ?
+	NotData  bool // *
 }
 
 func parseTag(v reflect.Value, i int) (tag *structTag, err error) {
@@ -105,7 +105,7 @@ func parseTag(v reflect.Value, i int) (tag *structTag, err error) {
 		tag.Optional = true
 	}
 	if strings.Contains(s, "*") {
-		tag.SkipSignature = true
+		tag.NotData = true
 	}
 	tag.Type, err = strconv.ParseUint(strings.TrimRight(s, "*?"), 10, 64)
 	return
