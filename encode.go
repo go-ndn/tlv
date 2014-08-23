@@ -3,7 +3,6 @@ package tlv
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"math"
 	"reflect"
@@ -19,7 +18,7 @@ func Marshal(buf Writer, i interface{}, valType uint64) error {
 func Data(buf Writer, i interface{}) (err error) {
 	structValue := reflect.Indirect(reflect.ValueOf(i))
 	if structValue.Kind() != reflect.Struct {
-		err = errors.New("not struct")
+		err = fmt.Errorf("not struct")
 		return
 	}
 	for i := 0; i < structValue.NumField(); i++ {
@@ -97,7 +96,7 @@ type structTag struct {
 func parseTag(v reflect.Value, i int) (tag *structTag, err error) {
 	s := v.Type().Field(i).Tag.Get("tlv")
 	if s == "" {
-		err = errors.New(fmt.Sprintf("type not found: %s %s", v.Type().Name(), v.Type().Field(i).Name))
+		err = fmt.Errorf("type not found: %v %v", v.Type().Name(), v.Type().Field(i).Name)
 		return
 	}
 	tag = new(structTag)
@@ -157,7 +156,7 @@ func encode(buf Writer, value reflect.Value, valType uint64) (err error) {
 			return
 		}
 	default:
-		err = errors.New("invalid type: " + value.Kind().String())
+		err = fmt.Errorf("invalid type: %v", value.Kind())
 		return
 	}
 	return

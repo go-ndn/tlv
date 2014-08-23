@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 	"reflect"
@@ -116,11 +115,11 @@ func decode(buf PeekReader, value reflect.Value, valType uint64) (err error) {
 
 	t, err := peekType(buf)
 	if err != nil {
-		err = errors.New("peek nothing: " + value.Type().String())
+		err = fmt.Errorf("peek nothing: %v", value.Type())
 		return
 	}
 	if t != valType {
-		err = errors.New(fmt.Sprintf("type does not match: %d != %d", valType, t))
+		err = fmt.Errorf("type does not match: %v != %v", valType, t)
 		return
 	}
 
@@ -152,7 +151,7 @@ func decode(buf PeekReader, value reflect.Value, valType uint64) (err error) {
 			return
 		}
 	default:
-		err = errors.New("invalid type: " + value.Kind().String())
+		err = fmt.Errorf("invalid type: %v", value.Kind())
 		return
 	}
 	return
