@@ -28,7 +28,7 @@ func Data(buf Writer, i interface{}) (err error) {
 		if err != nil {
 			return
 		}
-		if tag.NotData || tag.Optional && !fieldValue.IsValid() {
+		if tag.NotData || tag.Optional && reflect.DeepEqual(fieldValue.Interface(), reflect.Zero(fieldValue.Type()).Interface()) {
 			continue
 		}
 
@@ -171,7 +171,7 @@ func encodeStruct(buf Writer, structValue reflect.Value) (err error) {
 		if err != nil {
 			return
 		}
-		if tag.Optional && !fieldValue.IsValid() {
+		if tag.Optional && reflect.DeepEqual(fieldValue.Interface(), reflect.Zero(fieldValue.Type()).Interface()) {
 			continue
 		}
 

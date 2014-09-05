@@ -119,7 +119,7 @@ func decode(buf PeekReader, value reflect.Value, valType uint64) (err error) {
 		return
 	}
 	if t != valType {
-		err = fmt.Errorf("type does not match: %v != %v", valType, t)
+		err = fmt.Errorf("expected type: %v, actual type: %v", valType, t)
 		return
 	}
 
