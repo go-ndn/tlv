@@ -27,7 +27,7 @@ func readTLV(buf Reader) (t uint64, v []byte, err error) {
 	return
 }
 
-func readVarNum(buf Reader) (v uint64, err error) {
+func readVarNum(buf io.Reader) (v uint64, err error) {
 	b := make([]byte, 1)
 	_, err = io.ReadFull(buf, b)
 	if err != nil {
