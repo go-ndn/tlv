@@ -75,18 +75,6 @@ func encodeUint64(buf Writer, v uint64) (err error) {
 	return
 }
 
-func encodeString(buf Writer, v string) (err error) {
-	writeVarNum(buf, uint64(len(v)))
-	_, err = buf.Write([]byte(v))
-	return
-}
-
-func encodeBytes(buf Writer, v []byte) (err error) {
-	writeVarNum(buf, uint64(len(v)))
-	_, err = buf.Write(v)
-	return
-}
-
 type structTag struct {
 	Type     uint64
 	Optional bool // ?
@@ -126,7 +114,9 @@ func encode(buf Writer, value reflect.Value, valType uint64) (err error) {
 		switch value.Type().Elem().Kind() {
 		case reflect.Uint8:
 			writeVarNum(buf, valType)
-			err = encodeBytes(buf, value.Bytes())
+			b := value.Bytes()
+			writeVarNum(buf, uint64(len(b)))
+			_, err = buf.Write(b)
 			if err != nil {
 				return
 			}
@@ -140,7 +130,9 @@ func encode(buf Writer, value reflect.Value, valType uint64) (err error) {
 		}
 	case reflect.String:
 		writeVarNum(buf, valType)
-		err = encodeString(buf, value.String())
+		s := value.String()
+		writeVarNum(buf, uint64(len(s)))
+		_, err = buf.Write([]byte(s))
 		if err != nil {
 			return
 		}

@@ -22,6 +22,10 @@ func readTLV(buf Reader) (t uint64, v []byte, err error) {
 	if err != nil {
 		return
 	}
+	if l > 8800 {
+		err = fmt.Errorf("tlv over max size")
+		return
+	}
 	v = make([]byte, int(l))
 	_, err = io.ReadFull(buf, v)
 	return
