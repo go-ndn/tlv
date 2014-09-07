@@ -10,11 +10,19 @@ import (
 	"strings"
 )
 
+// Marshal writes arbitrary data to tlv.Writer
+//
+// Struct tag is "tlv", which specifies tlv type number.
+//
+// '?' after type number means that this field is optional.
+// If the value of optional tlv is Zero value, the whole tlv is not written.
+//
+// '*' after type number means that this field is not data (i.e. signature).
 func Marshal(buf Writer, i interface{}, valType uint64) error {
 	return encode(buf, reflect.ValueOf(i), valType)
 }
 
-// return data bytes, * marked field is skipped
+// Data writes all internal tlv bytes except * marked fields
 func Data(buf Writer, i interface{}) (err error) {
 	structValue := reflect.Indirect(reflect.ValueOf(i))
 	if structValue.Kind() != reflect.Struct {
@@ -77,8 +85,8 @@ func encodeUint64(buf Writer, v uint64) (err error) {
 
 type structTag struct {
 	Type     uint64
-	Optional bool // ?
-	NotData  bool // *
+	Optional bool
+	NotData  bool
 }
 
 func parseTag(v reflect.Value, i int) (tag *structTag, err error) {
@@ -102,7 +110,6 @@ func encode(buf Writer, value reflect.Value, valType uint64) (err error) {
 	switch value.Kind() {
 	case reflect.Bool:
 		writeVarNum(buf, valType)
-		// no length
 		writeVarNum(buf, 0)
 	case reflect.Uint64:
 		writeVarNum(buf, valType)
