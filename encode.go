@@ -23,29 +23,12 @@ func Marshal(buf Writer, i interface{}, valType uint64) error {
 }
 
 // Data writes all internal tlv bytes except * marked fields
-func Data(buf Writer, i interface{}) (err error) {
-	structValue := reflect.Indirect(reflect.ValueOf(i))
-	if structValue.Kind() != reflect.Struct {
-		err = fmt.Errorf("not struct")
-		return
+func Data(buf Writer, i interface{}) error {
+	value := reflect.Indirect(reflect.ValueOf(i))
+	if value.Kind() != reflect.Struct {
+		return fmt.Errorf("not struct")
 	}
-	for i := 0; i < structValue.NumField(); i++ {
-		fieldValue := structValue.Field(i)
-		var tag *structTag
-		tag, err = parseTag(structValue, i)
-		if err != nil {
-			return
-		}
-		if tag.NotData || tag.Optional && reflect.DeepEqual(fieldValue.Interface(), reflect.Zero(fieldValue.Type()).Interface()) {
-			continue
-		}
-
-		err = encode(buf, fieldValue, tag.Type)
-		if err != nil {
-			return
-		}
-	}
-	return
+	return encodeStruct(buf, value, true)
 }
 
 func writeVarNum(buf Writer, v uint64) (err error) {
@@ -107,6 +90,17 @@ func parseTag(v reflect.Value, i int) (tag *structTag, err error) {
 }
 
 func encode(buf Writer, value reflect.Value, valType uint64) (err error) {
+	if w, ok := value.Interface().(WriteValueTo); ok {
+		childBuf := new(bytes.Buffer)
+		err = w.WriteValueTo(childBuf)
+		if err != nil {
+			return
+		}
+		writeVarNum(buf, valType)
+		writeVarNum(buf, uint64(childBuf.Len()))
+		childBuf.WriteTo(buf)
+		return
+	}
 	switch value.Kind() {
 	case reflect.Bool:
 		writeVarNum(buf, valType)
@@ -149,11 +143,14 @@ func encode(buf Writer, value reflect.Value, valType uint64) (err error) {
 			return
 		}
 	case reflect.Struct:
-		writeVarNum(buf, valType)
-		err = encodeStruct(buf, value)
+		childBuf := new(bytes.Buffer)
+		err = encodeStruct(childBuf, value, false)
 		if err != nil {
 			return
 		}
+		writeVarNum(buf, valType)
+		writeVarNum(buf, uint64(childBuf.Len()))
+		childBuf.WriteTo(buf)
 	default:
 		err = fmt.Errorf("invalid type: %v", value.Kind())
 		return
@@ -161,8 +158,7 @@ func encode(buf Writer, value reflect.Value, valType uint64) (err error) {
 	return
 }
 
-func encodeStruct(buf Writer, structValue reflect.Value) (err error) {
-	childBuf := new(bytes.Buffer)
+func encodeStruct(buf Writer, structValue reflect.Value, dataOnly bool) (err error) {
 	for i := 0; i < structValue.NumField(); i++ {
 		fieldValue := structValue.Field(i)
 		var tag *structTag
@@ -170,16 +166,15 @@ func encodeStruct(buf Writer, structValue reflect.Value) (err error) {
 		if err != nil {
 			return
 		}
-		if tag.Optional && reflect.DeepEqual(fieldValue.Interface(), reflect.Zero(fieldValue.Type()).Interface()) {
+		if dataOnly && tag.NotData ||
+			tag.Optional && reflect.DeepEqual(fieldValue.Interface(), reflect.Zero(fieldValue.Type()).Interface()) {
 			continue
 		}
 
-		err = encode(childBuf, fieldValue, tag.Type)
+		err = encode(buf, fieldValue, tag.Type)
 		if err != nil {
 			return
 		}
 	}
-	writeVarNum(buf, uint64(childBuf.Len()))
-	childBuf.WriteTo(buf)
 	return
 }

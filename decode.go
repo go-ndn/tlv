@@ -29,7 +29,7 @@ func Unmarshal(buf PeekReader, i interface{}, valType uint64) error {
 	return decode(buf, reflect.ValueOf(i), valType)
 }
 
-func readTLV(buf Reader) (t uint64, v []byte, err error) {
+func readTLV(buf io.Reader) (t uint64, v []byte, err error) {
 	t, err = readVarNum(buf)
 	if err != nil {
 		return
@@ -146,6 +146,10 @@ func decode(buf PeekReader, value reflect.Value, valType uint64) (err error) {
 	_, v, err := readTLV(buf)
 	if err != nil {
 		return
+	}
+
+	if r, ok := value.Interface().(ReadValueFrom); ok {
+		return r.ReadValueFrom(bufio.NewReader(bytes.NewBuffer(v)))
 	}
 
 	switch value.Kind() {
