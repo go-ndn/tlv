@@ -97,61 +97,10 @@ func peekType(buf PeekReader) (t uint64, err error) {
 	return
 }
 
-func decode(buf PeekReader, value reflect.Value, valType uint64) (err error) {
-	switch value.Kind() {
-	case reflect.Ptr:
-		if value.CanSet() {
-			// uninitialized
-			elem := reflect.New(value.Type().Elem())
-			err = decode(buf, elem.Elem(), valType)
-			if err != nil {
-				return
-			}
-			value.Set(elem)
-		} else {
-			err = decode(buf, value.Elem(), valType)
-			if err != nil {
-				return
-			}
-		}
-		return
-	case reflect.Slice:
-		switch value.Type().Elem().Kind() {
-		case reflect.Uint8:
-		default:
-			for {
-				elem := reflect.New(value.Type().Elem()).Elem()
-				err = decode(buf, elem, valType)
-				if err != nil {
-					// try and fail approach
-					err = nil
-					break
-				}
-				value.Set(reflect.Append(value, elem))
-			}
-			return
-		}
-	}
-
-	t, err := peekType(buf)
-	if err != nil {
-		err = fmt.Errorf("peek nothing: %v", value.Type())
-		return
-	}
-	if t != valType {
-		err = fmt.Errorf("expected type: %v, actual type: %v", valType, t)
-		return
-	}
-
-	_, v, err := readTLV(buf)
-	if err != nil {
-		return
-	}
-
+func decodeValue(v []byte, value reflect.Value) (err error) {
 	if r, ok := value.Interface().(ReadValueFrom); ok {
 		return r.ReadValueFrom(bufio.NewReader(bytes.NewBuffer(v)))
 	}
-
 	switch value.Kind() {
 	case reflect.Bool:
 		value.SetBool(true)
@@ -169,6 +118,21 @@ func decode(buf PeekReader, value reflect.Value, valType uint64) (err error) {
 		}
 	case reflect.String:
 		value.SetString(string(v))
+	case reflect.Ptr:
+		if value.CanSet() {
+			// uninitialized
+			elem := reflect.New(value.Type().Elem())
+			err = decodeValue(v, elem.Elem())
+			if err != nil {
+				return
+			}
+			value.Set(elem)
+		} else {
+			err = decodeValue(v, value.Elem())
+			if err != nil {
+				return
+			}
+		}
 	case reflect.Struct:
 		err = decodeStruct(bufio.NewReader(bytes.NewBuffer(v)), value)
 		if err != nil {
@@ -178,6 +142,42 @@ func decode(buf PeekReader, value reflect.Value, valType uint64) (err error) {
 		err = fmt.Errorf("invalid type: %v", value.Kind())
 		return
 	}
+	return
+}
+
+func decode(buf PeekReader, value reflect.Value, valType uint64) (err error) {
+	if value.Kind() == reflect.Slice {
+		switch value.Type().Elem().Kind() {
+		case reflect.Uint8:
+		default:
+			for {
+				elem := reflect.New(value.Type().Elem()).Elem()
+				err = decode(buf, elem, valType)
+				if err != nil {
+					// try and fail approach
+					err = nil
+					break
+				}
+				value.Set(reflect.Append(value, elem))
+			}
+			return
+		}
+	}
+	t, err := peekType(buf)
+	if err != nil {
+		err = fmt.Errorf("peek nothing: %v", value.Type())
+		return
+	}
+	if t != valType {
+		err = fmt.Errorf("expected type: %v, actual type: %v", valType, t)
+		return
+	}
+
+	_, v, err := readTLV(buf)
+	if err != nil {
+		return
+	}
+	err = decodeValue(v, value)
 	return
 }
 

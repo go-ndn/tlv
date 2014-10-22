@@ -98,7 +98,7 @@ func encode(buf Writer, value reflect.Value, valType uint64) (err error) {
 		}
 		writeVarNum(buf, valType)
 		writeVarNum(buf, uint64(childBuf.Len()))
-		childBuf.WriteTo(buf)
+		_, err = childBuf.WriteTo(buf)
 		return
 	}
 	switch value.Kind() {
@@ -150,7 +150,10 @@ func encode(buf Writer, value reflect.Value, valType uint64) (err error) {
 		}
 		writeVarNum(buf, valType)
 		writeVarNum(buf, uint64(childBuf.Len()))
-		childBuf.WriteTo(buf)
+		_, err = childBuf.WriteTo(buf)
+		if err != nil {
+			return
+		}
 	default:
 		err = fmt.Errorf("invalid type: %v", value.Kind())
 		return
