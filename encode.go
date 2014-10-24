@@ -103,8 +103,10 @@ func encode(buf Writer, value reflect.Value, valType uint64) (err error) {
 	}
 	switch value.Kind() {
 	case reflect.Bool:
-		writeVarNum(buf, valType)
-		writeVarNum(buf, 0)
+		if value.Bool() {
+			writeVarNum(buf, valType)
+			writeVarNum(buf, 0)
+		}
 	case reflect.Uint64:
 		writeVarNum(buf, valType)
 		err = encodeUint64(buf, value.Uint())
