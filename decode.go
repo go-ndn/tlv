@@ -186,7 +186,7 @@ func decodeStruct(buf PeekReader, structValue reflect.Value) (err error) {
 		}
 		err = decode(buf, fieldValue, tag.Type)
 		if err != nil {
-			if tag.Optional {
+			if tag.Implicit || tag.Optional {
 				err = nil
 			} else {
 				return

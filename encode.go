@@ -14,10 +14,11 @@ import (
 //
 // Struct tag is "tlv", which specifies tlv type number.
 //
-// '?' after type number means that this field is optional.
-// If the value of optional tlv is Zero value, the whole tlv is not written.
+// '?': do not write on zero value
 //
-// '*' after type number means that this field is not data (i.e. signature).
+// '*': signature
+//
+// '!': implicit (never write)
 func Marshal(buf Writer, i interface{}, valType uint64) error {
 	return encode(buf, reflect.ValueOf(i), valType, false)
 }
@@ -70,6 +71,7 @@ type structTag struct {
 	Type     uint64
 	Optional bool
 	NotData  bool
+	Implicit bool
 }
 
 func parseTag(v reflect.Value, i int) (tag *structTag, err error) {
@@ -79,13 +81,10 @@ func parseTag(v reflect.Value, i int) (tag *structTag, err error) {
 		return
 	}
 	tag = new(structTag)
-	if strings.Contains(s, "?") {
-		tag.Optional = true
-	}
-	if strings.Contains(s, "*") {
-		tag.NotData = true
-	}
-	tag.Type, err = strconv.ParseUint(strings.TrimRight(s, "*?"), 10, 64)
+	tag.Optional = strings.Contains(s, "?")
+	tag.NotData = strings.Contains(s, "*")
+	tag.Implicit = strings.Contains(s, "!")
+	tag.Type, err = strconv.ParseUint(strings.TrimRight(s, "*?!"), 10, 64)
 	return
 }
 
@@ -171,7 +170,8 @@ func encodeStruct(buf Writer, structValue reflect.Value, dataOnly bool) (err err
 		if err != nil {
 			return
 		}
-		if dataOnly && tag.NotData ||
+		if tag.Implicit ||
+			dataOnly && tag.NotData ||
 			tag.Optional && reflect.DeepEqual(fieldValue.Interface(), reflect.Zero(fieldValue.Type()).Interface()) {
 			continue
 		}
