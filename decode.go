@@ -115,6 +115,13 @@ func decodeValue(v []byte, value reflect.Value) (err error) {
 		switch value.Type().Elem().Kind() {
 		case reflect.Uint8:
 			value.SetBytes(v)
+		default:
+			elem := reflect.New(value.Type().Elem()).Elem()
+			err = decodeValue(v, elem)
+			if err != nil {
+				return
+			}
+			value.Set(reflect.Append(value, elem))
 		}
 	case reflect.String:
 		value.SetString(string(v))
@@ -146,23 +153,6 @@ func decodeValue(v []byte, value reflect.Value) (err error) {
 }
 
 func decode(buf PeekReader, value reflect.Value, valType uint64) (err error) {
-	if value.Kind() == reflect.Slice {
-		switch value.Type().Elem().Kind() {
-		case reflect.Uint8:
-		default:
-			for {
-				elem := reflect.New(value.Type().Elem()).Elem()
-				err = decode(buf, elem, valType)
-				if err != nil {
-					// try and fail approach
-					err = nil
-					break
-				}
-				value.Set(reflect.Append(value, elem))
-			}
-			return
-		}
-	}
 	t, err := peekType(buf)
 	if err != nil {
 		err = fmt.Errorf("peek nothing: %v", value.Type())
@@ -172,12 +162,17 @@ func decode(buf PeekReader, value reflect.Value, valType uint64) (err error) {
 		err = fmt.Errorf("expected type: %v, actual type: %v", valType, t)
 		return
 	}
-
 	_, v, err := readTLV(buf)
 	if err != nil {
 		return
 	}
 	err = decodeValue(v, value)
+	if err != nil {
+		return
+	}
+	if value.Kind() == reflect.Slice && value.Type().Elem().Kind() != reflect.Uint8 {
+		decode(buf, value, valType)
+	}
 	return
 }
 
