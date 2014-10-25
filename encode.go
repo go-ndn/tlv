@@ -19,7 +19,7 @@ import (
 //
 // '*' after type number means that this field is not data (i.e. signature).
 func Marshal(buf Writer, i interface{}, valType uint64) error {
-	return encode(buf, reflect.ValueOf(i), valType)
+	return encode(buf, reflect.ValueOf(i), valType, false)
 }
 
 // Data writes all internal tlv bytes except * marked fields
@@ -89,7 +89,7 @@ func parseTag(v reflect.Value, i int) (tag *structTag, err error) {
 	return
 }
 
-func encode(buf Writer, value reflect.Value, valType uint64) (err error) {
+func encode(buf Writer, value reflect.Value, valType uint64, dataOnly bool) (err error) {
 	if w, ok := value.Interface().(WriteValueTo); ok {
 		childBuf := new(bytes.Buffer)
 		err = w.WriteValueTo(childBuf)
@@ -125,7 +125,7 @@ func encode(buf Writer, value reflect.Value, valType uint64) (err error) {
 			}
 		default:
 			for j := 0; j < value.Len(); j++ {
-				err = encode(buf, value.Index(j), valType)
+				err = encode(buf, value.Index(j), valType, dataOnly)
 				if err != nil {
 					return
 				}
@@ -140,13 +140,13 @@ func encode(buf Writer, value reflect.Value, valType uint64) (err error) {
 			return
 		}
 	case reflect.Ptr:
-		err = encode(buf, value.Elem(), valType)
+		err = encode(buf, value.Elem(), valType, dataOnly)
 		if err != nil {
 			return
 		}
 	case reflect.Struct:
 		childBuf := new(bytes.Buffer)
-		err = encodeStruct(childBuf, value, false)
+		err = encodeStruct(childBuf, value, dataOnly)
 		if err != nil {
 			return
 		}
@@ -176,7 +176,7 @@ func encodeStruct(buf Writer, structValue reflect.Value, dataOnly bool) (err err
 			continue
 		}
 
-		err = encode(buf, fieldValue, tag.Type)
+		err = encode(buf, fieldValue, tag.Type, dataOnly)
 		if err != nil {
 			return
 		}
