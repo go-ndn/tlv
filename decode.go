@@ -3,6 +3,7 @@ package tlv
 import (
 	"bufio"
 	"bytes"
+	"encoding"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -98,8 +99,8 @@ func peekType(buf PeekReader) (t uint64, err error) {
 }
 
 func decodeValue(v []byte, value reflect.Value) (err error) {
-	if r, ok := value.Interface().(ReadValueFrom); ok {
-		return r.ReadValueFrom(bufio.NewReader(bytes.NewBuffer(v)))
+	if r, ok := value.Interface().(encoding.BinaryUnmarshaler); ok {
+		return r.UnmarshalBinary(v)
 	}
 	switch value.Kind() {
 	case reflect.Bool:

@@ -20,11 +20,3 @@ type ReadFrom interface {
 type WriteTo interface {
 	WriteTo(Writer) error
 }
-
-type ReadValueFrom interface {
-	ReadValueFrom(PeekReader) error
-}
-
-type WriteValueTo interface {
-	WriteValueTo(Writer) error
-}

@@ -2,6 +2,7 @@ package tlv
 
 import (
 	"bytes"
+	"encoding"
 	"encoding/binary"
 	"fmt"
 	"math"
@@ -89,15 +90,15 @@ func parseTag(v reflect.Value, i int) (tag *structTag, err error) {
 }
 
 func encode(buf Writer, value reflect.Value, valType uint64, dataOnly bool) (err error) {
-	if w, ok := value.Interface().(WriteValueTo); ok {
-		childBuf := new(bytes.Buffer)
-		err = w.WriteValueTo(childBuf)
+	if w, ok := value.Interface().(encoding.BinaryMarshaler); ok {
+		var data []byte
+		data, err = w.MarshalBinary()
 		if err != nil {
 			return
 		}
 		writeVarNum(buf, valType)
-		writeVarNum(buf, uint64(childBuf.Len()))
-		_, err = childBuf.WriteTo(buf)
+		writeVarNum(buf, uint64(len(data)))
+		_, err = buf.Write(data)
 		return
 	}
 	switch value.Kind() {
