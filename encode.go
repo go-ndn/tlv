@@ -19,7 +19,7 @@ import (
 //
 // '*': signature
 //
-// '!': implicit (never write)
+// '-': implicit (never write)
 func Marshal(buf Writer, i interface{}, valType uint64) error {
 	return encode(buf, reflect.ValueOf(i), valType, false)
 }
@@ -84,8 +84,8 @@ func parseTag(v reflect.Value, i int) (tag *structTag, err error) {
 	tag = new(structTag)
 	tag.Optional = strings.Contains(s, "?")
 	tag.NotData = strings.Contains(s, "*")
-	tag.Implicit = strings.Contains(s, "!")
-	tag.Type, err = strconv.ParseUint(strings.TrimRight(s, "*?!"), 10, 64)
+	tag.Implicit = strings.Contains(s, "-")
+	tag.Type, err = strconv.ParseUint(strings.TrimRight(s, "?*-"), 10, 64)
 	return
 }
 
