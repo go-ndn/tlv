@@ -78,7 +78,7 @@ type structTag struct {
 func parseTag(v reflect.Value, i int) (tag *structTag, err error) {
 	s := v.Type().Field(i).Tag.Get("tlv")
 	if s == "" {
-		err = fmt.Errorf("type not found: %v %v", v.Type().Name(), v.Type().Field(i).Name)
+		err = fmt.Errorf("type not found: %s %s", v.Type().Name(), v.Type().Field(i).Name)
 		return
 	}
 	tag = new(structTag)
@@ -157,7 +157,7 @@ func encode(buf Writer, value reflect.Value, valType uint64, dataOnly bool) (err
 			return
 		}
 	default:
-		err = fmt.Errorf("invalid type: %v", value.Kind())
+		err = fmt.Errorf("invalid type: %s", value.Kind())
 		return
 	}
 	return

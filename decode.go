@@ -147,7 +147,7 @@ func decodeValue(v []byte, value reflect.Value) (err error) {
 			return
 		}
 	default:
-		err = fmt.Errorf("invalid type: %v", value.Kind())
+		err = fmt.Errorf("invalid type: %s", value.Kind())
 		return
 	}
 	return
@@ -156,11 +156,11 @@ func decodeValue(v []byte, value reflect.Value) (err error) {
 func decode(buf PeekReader, value reflect.Value, valType uint64) (err error) {
 	t, err := peekType(buf)
 	if err != nil {
-		err = fmt.Errorf("peek nothing: %v", value.Type())
+		err = fmt.Errorf("peek nothing: %s", value.Type().Name())
 		return
 	}
 	if t != valType {
-		err = fmt.Errorf("expected type: %v, actual type: %v", valType, t)
+		err = fmt.Errorf("expected type: %d, actual type: %d", valType, t)
 		return
 	}
 	_, v, err := readTLV(buf)
