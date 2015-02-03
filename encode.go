@@ -4,11 +4,15 @@ import (
 	"bytes"
 	"encoding"
 	"encoding/binary"
-	"fmt"
+	"errors"
 	"math"
 	"reflect"
 	"strconv"
 	"strings"
+)
+
+var (
+	ErrMissingType = errors.New("type not specified")
 )
 
 // Marshal writes arbitrary data to tlv.Writer
@@ -28,7 +32,7 @@ func Marshal(buf Writer, i interface{}, valType uint64) error {
 func Data(buf Writer, i interface{}) error {
 	value := reflect.Indirect(reflect.ValueOf(i))
 	if value.Kind() != reflect.Struct {
-		return fmt.Errorf("not struct")
+		return ErrNotSupported
 	}
 	return encodeStruct(buf, value, true)
 }
@@ -78,7 +82,7 @@ type structTag struct {
 func parseTag(v reflect.Value, i int) (tag *structTag, err error) {
 	s := v.Type().Field(i).Tag.Get("tlv")
 	if s == "" {
-		err = fmt.Errorf("type not found: %s %s", v.Type().Name(), v.Type().Field(i).Name)
+		err = ErrMissingType
 		return
 	}
 	tag = new(structTag)
@@ -157,7 +161,7 @@ func encode(buf Writer, value reflect.Value, valType uint64, dataOnly bool) (err
 			return
 		}
 	default:
-		err = fmt.Errorf("invalid type: %s", value.Kind())
+		err = ErrNotSupported
 		return
 	}
 	return

@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"encoding"
 	"encoding/binary"
-	"fmt"
+	"errors"
 	"io"
 	"reflect"
 )
@@ -25,6 +25,12 @@ const (
 	maxSize = 8800
 )
 
+var (
+	ErrPacketTooLarge = errors.New("exceed max size")
+	ErrNotSupported   = errors.New("feature not supported")
+	ErrUnexpectedType = errors.New("type not match")
+)
+
 // Unmarshal reads arbitrary data from tlv.PeekReader
 func Unmarshal(buf PeekReader, i interface{}, valType uint64) error {
 	return decode(buf, reflect.ValueOf(i), valType)
@@ -40,7 +46,7 @@ func readTLV(buf io.Reader) (t uint64, v []byte, err error) {
 		return
 	}
 	if l > maxSize {
-		err = fmt.Errorf("tlv over max size")
+		err = ErrPacketTooLarge
 		return
 	}
 	v = make([]byte, int(l))
@@ -147,7 +153,7 @@ func decodeValue(v []byte, value reflect.Value) (err error) {
 			return
 		}
 	default:
-		err = fmt.Errorf("invalid type: %s", value.Kind())
+		err = ErrNotSupported
 		return
 	}
 	return
@@ -156,11 +162,10 @@ func decodeValue(v []byte, value reflect.Value) (err error) {
 func decode(buf PeekReader, value reflect.Value, valType uint64) (err error) {
 	t, err := peekType(buf)
 	if err != nil {
-		err = fmt.Errorf("peek nothing: %s", value.Type().Name())
 		return
 	}
 	if t != valType {
-		err = fmt.Errorf("expected type: %d, actual type: %d", valType, t)
+		err = ErrUnexpectedType
 		return
 	}
 	_, v, err := readTLV(buf)
