@@ -38,44 +38,46 @@ func Data(buf Writer, i interface{}) error {
 }
 
 func writeVarNum(buf Writer, v uint64) (err error) {
-	b := make([]byte, 8)
+	b := make([]byte, 9)
 	switch {
 	case v > math.MaxUint32:
-		buf.Write([]byte{0xFF})
-		binary.BigEndian.PutUint64(b, v)
+		b[0] = 0xFF
+		binary.BigEndian.PutUint64(b[1:], v)
 		_, err = buf.Write(b)
 	case v > math.MaxUint16:
-		buf.Write([]byte{0xFE})
-		binary.BigEndian.PutUint32(b, uint32(v))
-		_, err = buf.Write(b[:4])
+		b[0] = 0xFE
+		binary.BigEndian.PutUint32(b[1:], uint32(v))
+		_, err = buf.Write(b[:5])
 	case v > math.MaxUint8-3:
-		buf.Write([]byte{0xFD})
-		binary.BigEndian.PutUint16(b, uint16(v))
-		_, err = buf.Write(b[:2])
+		b[0] = 0xFD
+		binary.BigEndian.PutUint16(b[1:], uint16(v))
+		_, err = buf.Write(b[:3])
 	default:
-		_, err = buf.Write([]byte{uint8(v)})
+		b[0] = uint8(v)
+		_, err = buf.Write(b[:1])
 	}
 	return
 }
 
 func encodeUint64(buf Writer, v uint64) (err error) {
-	b := make([]byte, 8)
+	b := make([]byte, 9)
 	switch {
 	case v > math.MaxUint32:
-		writeVarNum(buf, 8)
-		binary.BigEndian.PutUint64(b, v)
+		b[0] = 8
+		binary.BigEndian.PutUint64(b[1:], v)
 		_, err = buf.Write(b)
 	case v > math.MaxUint16:
-		writeVarNum(buf, 4)
-		binary.BigEndian.PutUint32(b, uint32(v))
-		_, err = buf.Write(b[:4])
+		b[0] = 4
+		binary.BigEndian.PutUint32(b[1:], uint32(v))
+		_, err = buf.Write(b[:5])
 	case v > math.MaxUint8:
-		writeVarNum(buf, 2)
-		binary.BigEndian.PutUint16(b, uint16(v))
-		_, err = buf.Write(b[:2])
+		b[0] = 2
+		binary.BigEndian.PutUint16(b[1:], uint16(v))
+		_, err = buf.Write(b[:3])
 	default:
-		writeVarNum(buf, 1)
-		_, err = buf.Write([]byte{uint8(v)})
+		b[0] = 1
+		b[1] = uint8(v)
+		_, err = buf.Write(b[:2])
 	}
 	return
 }
@@ -87,8 +89,8 @@ type structTag struct {
 	Implicit bool
 }
 
-func parseTag(v reflect.Value, i int) (tag *structTag, err error) {
-	s := v.Type().Field(i).Tag.Get("tlv")
+func parseTag(t reflect.StructTag) (tag *structTag, err error) {
+	s := t.Get("tlv")
 	if s == "" {
 		err = ErrMissingType
 		return
@@ -117,7 +119,7 @@ func encode(buf Writer, value reflect.Value, valType uint64, dataOnly bool) (err
 	case reflect.Bool:
 		if value.Bool() {
 			writeVarNum(buf, valType)
-			writeVarNum(buf, 0)
+			buf.Write([]byte{0})
 		}
 	case reflect.Uint64:
 		writeVarNum(buf, valType)
@@ -179,7 +181,7 @@ func encodeStruct(buf Writer, structValue reflect.Value, dataOnly bool) (err err
 	for i := 0; i < structValue.NumField(); i++ {
 		fieldValue := structValue.Field(i)
 		var tag *structTag
-		tag, err = parseTag(structValue, i)
+		tag, err = parseTag(structValue.Type().Field(i).Tag)
 		if err != nil {
 			return
 		}

@@ -1,7 +1,6 @@
 package tlv
 
 import (
-	"bufio"
 	"bytes"
 	"encoding"
 	"encoding/binary"
@@ -31,8 +30,8 @@ var (
 	ErrUnexpectedType = errors.New("type not match")
 )
 
-// Unmarshal reads arbitrary data from tlv.PeekReader
-func Unmarshal(buf PeekReader, i interface{}, valType uint64) error {
+// Unmarshal reads arbitrary data from tlv.Reader
+func Unmarshal(buf Reader, i interface{}, valType uint64) error {
 	return decode(buf, reflect.ValueOf(i), valType)
 }
 
@@ -99,13 +98,6 @@ func decodeUint64(b []byte) uint64 {
 	return 0
 }
 
-func peekType(buf PeekReader) (t uint64, err error) {
-	// at most 1 + 8 bytes
-	b, _ := buf.Peek(9)
-	t, err = readVarNum(bytes.NewReader(b))
-	return
-}
-
 func decodeValue(v []byte, value reflect.Value) (err error) {
 	if r, ok := value.Interface().(encoding.BinaryUnmarshaler); ok {
 		return r.UnmarshalBinary(v)
@@ -145,7 +137,7 @@ func decodeValue(v []byte, value reflect.Value) (err error) {
 			}
 		}
 	case reflect.Struct:
-		err = decodeStruct(bufio.NewReader(bytes.NewReader(v)), value)
+		err = decodeStruct(NewReader(bytes.NewReader(v)), value)
 		if err != nil {
 			return
 		}
@@ -156,12 +148,8 @@ func decodeValue(v []byte, value reflect.Value) (err error) {
 	return
 }
 
-func decode(buf PeekReader, value reflect.Value, valType uint64) (err error) {
-	t, err := peekType(buf)
-	if err != nil {
-		return
-	}
-	if t != valType {
+func decode(buf Reader, value reflect.Value, valType uint64) (err error) {
+	if buf.Peek() != valType {
 		err = ErrUnexpectedType
 		return
 	}
@@ -179,17 +167,20 @@ func decode(buf PeekReader, value reflect.Value, valType uint64) (err error) {
 	return
 }
 
-func decodeStruct(buf PeekReader, structValue reflect.Value) (err error) {
+func decodeStruct(buf Reader, structValue reflect.Value) (err error) {
 	for i := 0; i < structValue.NumField(); i++ {
 		fieldValue := structValue.Field(i)
 		var tag *structTag
-		tag, err = parseTag(structValue, i)
+		tag, err = parseTag(structValue.Type().Field(i).Tag)
 		if err != nil {
 			return
 		}
+		if tag.Implicit {
+			continue
+		}
 		err = decode(buf, fieldValue, tag.Type)
 		if err != nil {
-			if tag.Implicit || tag.Optional {
+			if tag.Optional {
 				err = nil
 			} else {
 				return

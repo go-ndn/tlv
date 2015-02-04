@@ -1,7 +1,6 @@
 package tlv
 
 import (
-	"bufio"
 	"bytes"
 	"reflect"
 	"testing"
@@ -36,7 +35,7 @@ func TestTLV(t *testing.T) {
 		t.Fatal(err)
 	}
 	v2 := Test{}
-	err = Unmarshal(bufio.NewReader(buf), &v2, 6)
+	err = Unmarshal(NewReader(buf), &v2, 6)
 	if err != nil {
 		t.Fatal(err)
 	}
