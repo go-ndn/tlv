@@ -55,52 +55,54 @@ func readTLV(buf io.Reader) (t uint64, v []byte, err error) {
 }
 
 func readVarNum(buf io.Reader) (v uint64, err error) {
-	b := make([]byte, 1)
-	_, err = io.ReadFull(buf, b)
+	b := make([]byte, 8)
+	_, err = io.ReadFull(buf, b[:1])
 	if err != nil {
 		return
 	}
 	switch b[0] {
 	case 0xFF:
-		err = binary.Read(buf, binary.BigEndian, &v)
+		_, err = io.ReadFull(buf, b)
+		if err != nil {
+			return
+		}
+		v = binary.BigEndian.Uint64(b)
 	case 0xFE:
-		var v32 uint32
-		err = binary.Read(buf, binary.BigEndian, &v32)
-		v = uint64(v32)
+		_, err = io.ReadFull(buf, b[:4])
+		if err != nil {
+			return
+		}
+		v = uint64(binary.BigEndian.Uint32(b[:4]))
 	case 0xFD:
-		var v16 uint16
-		err = binary.Read(buf, binary.BigEndian, &v16)
-		v = uint64(v16)
+		_, err = io.ReadFull(buf, b[:2])
+		if err != nil {
+			return
+		}
+		v = uint64(binary.BigEndian.Uint16(b[:2]))
 	default:
 		v = uint64(b[0])
 	}
 	return
 }
 
-func decodeUint64(buf *bytes.Buffer) (v uint64, err error) {
-	switch buf.Len() {
+func decodeUint64(b []byte) uint64 {
+	switch len(b) {
 	case 8:
-		err = binary.Read(buf, binary.BigEndian, &v)
+		return binary.BigEndian.Uint64(b)
 	case 4:
-		var v32 uint32
-		err = binary.Read(buf, binary.BigEndian, &v32)
-		v = uint64(v32)
+		return uint64(binary.BigEndian.Uint32(b))
 	case 2:
-		var v16 uint16
-		err = binary.Read(buf, binary.BigEndian, &v16)
-		v = uint64(v16)
+		return uint64(binary.BigEndian.Uint16(b))
 	case 1:
-		var v8 uint8
-		err = binary.Read(buf, binary.BigEndian, &v8)
-		v = uint64(v8)
+		return uint64(b[0])
 	}
-	return
+	return 0
 }
 
 func peekType(buf PeekReader) (t uint64, err error) {
 	// at most 1 + 8 bytes
 	b, _ := buf.Peek(9)
-	t, err = readVarNum(bytes.NewBuffer(b))
+	t, err = readVarNum(bytes.NewReader(b))
 	return
 }
 
@@ -112,12 +114,7 @@ func decodeValue(v []byte, value reflect.Value) (err error) {
 	case reflect.Bool:
 		value.SetBool(true)
 	case reflect.Uint64:
-		var num uint64
-		num, err = decodeUint64(bytes.NewBuffer(v))
-		if err != nil {
-			return
-		}
-		value.SetUint(num)
+		value.SetUint(decodeUint64(v))
 	case reflect.Slice:
 		switch value.Type().Elem().Kind() {
 		case reflect.Uint8:
@@ -148,7 +145,7 @@ func decodeValue(v []byte, value reflect.Value) (err error) {
 			}
 		}
 	case reflect.Struct:
-		err = decodeStruct(bufio.NewReader(bytes.NewBuffer(v)), value)
+		err = decodeStruct(bufio.NewReader(bytes.NewReader(v)), value)
 		if err != nil {
 			return
 		}

@@ -38,36 +38,44 @@ func Data(buf Writer, i interface{}) error {
 }
 
 func writeVarNum(buf Writer, v uint64) (err error) {
+	b := make([]byte, 8)
 	switch {
 	case v > math.MaxUint32:
 		buf.Write([]byte{0xFF})
-		err = binary.Write(buf, binary.BigEndian, v)
+		binary.BigEndian.PutUint64(b, v)
+		_, err = buf.Write(b)
 	case v > math.MaxUint16:
 		buf.Write([]byte{0xFE})
-		err = binary.Write(buf, binary.BigEndian, uint32(v))
+		binary.BigEndian.PutUint32(b, uint32(v))
+		_, err = buf.Write(b[:4])
 	case v > math.MaxUint8-3:
 		buf.Write([]byte{0xFD})
-		err = binary.Write(buf, binary.BigEndian, uint16(v))
+		binary.BigEndian.PutUint16(b, uint16(v))
+		_, err = buf.Write(b[:2])
 	default:
-		err = binary.Write(buf, binary.BigEndian, uint8(v))
+		_, err = buf.Write([]byte{uint8(v)})
 	}
 	return
 }
 
 func encodeUint64(buf Writer, v uint64) (err error) {
+	b := make([]byte, 8)
 	switch {
 	case v > math.MaxUint32:
 		writeVarNum(buf, 8)
-		err = binary.Write(buf, binary.BigEndian, v)
+		binary.BigEndian.PutUint64(b, v)
+		_, err = buf.Write(b)
 	case v > math.MaxUint16:
 		writeVarNum(buf, 4)
-		err = binary.Write(buf, binary.BigEndian, uint32(v))
+		binary.BigEndian.PutUint32(b, uint32(v))
+		_, err = buf.Write(b[:4])
 	case v > math.MaxUint8:
 		writeVarNum(buf, 2)
-		err = binary.Write(buf, binary.BigEndian, uint16(v))
+		binary.BigEndian.PutUint16(b, uint16(v))
+		_, err = buf.Write(b[:2])
 	default:
 		writeVarNum(buf, 1)
-		err = binary.Write(buf, binary.BigEndian, uint8(v))
+		_, err = buf.Write([]byte{uint8(v)})
 	}
 	return
 }
