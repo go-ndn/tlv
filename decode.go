@@ -149,20 +149,28 @@ func decodeValue(v []byte, value reflect.Value) (err error) {
 }
 
 func decode(buf Reader, value reflect.Value, valType uint64) (err error) {
-	if buf.Peek() != valType {
-		err = ErrUnexpectedType
-		return
+	var once bool
+	for {
+		if buf.Peek() != valType {
+			err = ErrUnexpectedType
+			break
+		}
+		var v []byte
+		_, v, err = readTLV(buf)
+		if err != nil {
+			break
+		}
+		err = decodeValue(v, value)
+		if err != nil {
+			break
+		}
+		once = true
+		if value.Kind() != reflect.Slice || value.Type().Elem().Kind() == reflect.Uint8 {
+			break
+		}
 	}
-	_, v, err := readTLV(buf)
-	if err != nil {
-		return
-	}
-	err = decodeValue(v, value)
-	if err != nil {
-		return
-	}
-	if value.Kind() == reflect.Slice && value.Type().Elem().Kind() != reflect.Uint8 {
-		decode(buf, value, valType)
+	if once {
+		err = nil
 	}
 	return
 }
