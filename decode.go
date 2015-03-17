@@ -32,7 +32,7 @@ var (
 
 // Unmarshal reads arbitrary data from tlv.Reader
 func Unmarshal(buf Reader, i interface{}, valType uint64) error {
-	return decode(buf, reflect.ValueOf(i), valType)
+	return decode(buf, reflect.Indirect(reflect.ValueOf(i)), valType)
 }
 
 func readTLV(buf io.Reader) (t uint64, v []byte, err error) {
