@@ -9,6 +9,7 @@ import (
 type Container struct {
 	V uint64 `tlv:"6"`
 }
+
 type Test struct {
 	Num        uint64      `tlv:"1"`
 	String     string      `tlv:"2?"`

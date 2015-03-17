@@ -24,23 +24,23 @@ type WriteTo interface {
 }
 
 func NewReader(r io.Reader) Reader {
-	return &reader{r: bufio.NewReader(r)}
+	return &reader{rd: bufio.NewReader(r)}
 }
 
 type reader struct {
-	r *bufio.Reader
-	t uint64
+	rd *bufio.Reader
+	t  uint64
 }
 
-func (this *reader) Peek() uint64 {
-	if this.t == 0 {
-		b, _ := this.r.Peek(9)
-		this.t, _ = readVarNum(bytes.NewReader(b))
+func (r *reader) Peek() uint64 {
+	if r.t == 0 {
+		b, _ := r.rd.Peek(9)
+		r.t, _ = readVarNum(bytes.NewReader(b))
 	}
-	return this.t
+	return r.t
 }
 
-func (this *reader) Read(b []byte) (int, error) {
-	this.t = 0
-	return this.r.Read(b)
+func (r *reader) Read(b []byte) (int, error) {
+	r.t = 0
+	return r.rd.Read(b)
 }

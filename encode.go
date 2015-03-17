@@ -24,60 +24,60 @@ var (
 // '*': signature
 //
 // '-': implicit (never write)
-func Marshal(buf Writer, i interface{}, valType uint64) error {
-	return encode(buf, reflect.ValueOf(i), valType, false)
+func Marshal(w Writer, i interface{}, valType uint64) error {
+	return encode(w, reflect.ValueOf(i), valType, false)
 }
 
 // Data writes all internal tlv bytes except * marked fields
-func Data(buf Writer, i interface{}) error {
+func Data(w Writer, i interface{}) error {
 	value := reflect.Indirect(reflect.ValueOf(i))
 	if value.Kind() != reflect.Struct {
 		return ErrNotSupported
 	}
-	return encodeStruct(buf, value, true)
+	return encodeStruct(w, value, true)
 }
 
-func writeVarNum(buf Writer, v uint64) (err error) {
+func writeVarNum(w Writer, v uint64) (err error) {
 	b := make([]byte, 9)
 	switch {
 	case v > math.MaxUint32:
 		b[0] = 0xFF
 		binary.BigEndian.PutUint64(b[1:], v)
-		_, err = buf.Write(b)
+		_, err = w.Write(b)
 	case v > math.MaxUint16:
 		b[0] = 0xFE
 		binary.BigEndian.PutUint32(b[1:], uint32(v))
-		_, err = buf.Write(b[:5])
+		_, err = w.Write(b[:5])
 	case v > math.MaxUint8-3:
 		b[0] = 0xFD
 		binary.BigEndian.PutUint16(b[1:], uint16(v))
-		_, err = buf.Write(b[:3])
+		_, err = w.Write(b[:3])
 	default:
 		b[0] = uint8(v)
-		_, err = buf.Write(b[:1])
+		_, err = w.Write(b[:1])
 	}
 	return
 }
 
-func encodeUint64(buf Writer, v uint64) (err error) {
+func encodeUint64(w Writer, v uint64) (err error) {
 	b := make([]byte, 9)
 	switch {
 	case v > math.MaxUint32:
 		b[0] = 8
 		binary.BigEndian.PutUint64(b[1:], v)
-		_, err = buf.Write(b)
+		_, err = w.Write(b)
 	case v > math.MaxUint16:
 		b[0] = 4
 		binary.BigEndian.PutUint32(b[1:], uint32(v))
-		_, err = buf.Write(b[:5])
+		_, err = w.Write(b[:5])
 	case v > math.MaxUint8:
 		b[0] = 2
 		binary.BigEndian.PutUint16(b[1:], uint16(v))
-		_, err = buf.Write(b[:3])
+		_, err = w.Write(b[:3])
 	default:
 		b[0] = 1
 		b[1] = uint8(v)
-		_, err = buf.Write(b[:2])
+		_, err = w.Write(b[:2])
 	}
 	return
 }
@@ -103,70 +103,70 @@ func parseTag(t reflect.StructTag) (tag *structTag, err error) {
 	return
 }
 
-func encode(buf Writer, value reflect.Value, valType uint64, dataOnly bool) (err error) {
-	if w, ok := value.Interface().(encoding.BinaryMarshaler); ok {
-		var data []byte
-		data, err = w.MarshalBinary()
+func encode(w Writer, value reflect.Value, valType uint64, dataOnly bool) (err error) {
+	if i, ok := value.Interface().(encoding.BinaryMarshaler); ok {
+		var b []byte
+		b, err = i.MarshalBinary()
 		if err != nil {
 			return
 		}
-		writeVarNum(buf, valType)
-		writeVarNum(buf, uint64(len(data)))
-		_, err = buf.Write(data)
+		writeVarNum(w, valType)
+		writeVarNum(w, uint64(len(b)))
+		_, err = w.Write(b)
 		return
 	}
 	switch value.Kind() {
 	case reflect.Bool:
 		if value.Bool() {
-			writeVarNum(buf, valType)
-			buf.Write([]byte{0})
+			writeVarNum(w, valType)
+			w.Write([]byte{0})
 		}
 	case reflect.Uint64:
-		writeVarNum(buf, valType)
-		err = encodeUint64(buf, value.Uint())
+		writeVarNum(w, valType)
+		err = encodeUint64(w, value.Uint())
 		if err != nil {
 			return
 		}
 	case reflect.Slice:
 		switch value.Type().Elem().Kind() {
 		case reflect.Uint8:
-			writeVarNum(buf, valType)
+			writeVarNum(w, valType)
 			b := value.Bytes()
-			writeVarNum(buf, uint64(len(b)))
-			_, err = buf.Write(b)
+			writeVarNum(w, uint64(len(b)))
+			_, err = w.Write(b)
 			if err != nil {
 				return
 			}
 		default:
 			for j := 0; j < value.Len(); j++ {
-				err = encode(buf, value.Index(j), valType, dataOnly)
+				err = encode(w, value.Index(j), valType, dataOnly)
 				if err != nil {
 					return
 				}
 			}
 		}
 	case reflect.String:
-		writeVarNum(buf, valType)
+		writeVarNum(w, valType)
 		s := value.String()
-		writeVarNum(buf, uint64(len(s)))
-		_, err = buf.Write([]byte(s))
+		writeVarNum(w, uint64(len(s)))
+		_, err = w.Write([]byte(s))
 		if err != nil {
 			return
 		}
 	case reflect.Ptr:
-		err = encode(buf, value.Elem(), valType, dataOnly)
+		err = encode(w, value.Elem(), valType, dataOnly)
 		if err != nil {
 			return
 		}
 	case reflect.Struct:
-		childBuf := new(bytes.Buffer)
-		err = encodeStruct(childBuf, value, dataOnly)
+		buf := new(bytes.Buffer)
+		err = encodeStruct(buf, value, dataOnly)
 		if err != nil {
 			return
 		}
-		writeVarNum(buf, valType)
-		writeVarNum(buf, uint64(childBuf.Len()))
-		_, err = childBuf.WriteTo(buf)
+		writeVarNum(w, valType)
+		writeVarNum(w, uint64(buf.Len()))
+		_, err = buf.WriteTo(w)
 		if err != nil {
 			return
 		}
@@ -177,7 +177,7 @@ func encode(buf Writer, value reflect.Value, valType uint64, dataOnly bool) (err
 	return
 }
 
-func encodeStruct(buf Writer, structValue reflect.Value, dataOnly bool) (err error) {
+func encodeStruct(w Writer, structValue reflect.Value, dataOnly bool) (err error) {
 	for i := 0; i < structValue.NumField(); i++ {
 		fieldValue := structValue.Field(i)
 		var tag *structTag
@@ -191,7 +191,7 @@ func encodeStruct(buf Writer, structValue reflect.Value, dataOnly bool) (err err
 			continue
 		}
 
-		err = encode(buf, fieldValue, tag.Type, dataOnly)
+		err = encode(w, fieldValue, tag.Type, dataOnly)
 		if err != nil {
 			return
 		}

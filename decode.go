@@ -31,16 +31,16 @@ var (
 )
 
 // Unmarshal reads arbitrary data from tlv.Reader
-func Unmarshal(buf Reader, i interface{}, valType uint64) error {
-	return decode(buf, reflect.Indirect(reflect.ValueOf(i)), valType)
+func Unmarshal(r Reader, i interface{}, valType uint64) error {
+	return decode(r, reflect.Indirect(reflect.ValueOf(i)), valType)
 }
 
-func readTLV(buf io.Reader) (t uint64, v []byte, err error) {
-	t, err = readVarNum(buf)
+func readTLV(r io.Reader) (t uint64, v []byte, err error) {
+	t, err = readVarNum(r)
 	if err != nil {
 		return
 	}
-	l, err := readVarNum(buf)
+	l, err := readVarNum(r)
 	if err != nil {
 		return
 	}
@@ -49,31 +49,31 @@ func readTLV(buf io.Reader) (t uint64, v []byte, err error) {
 		return
 	}
 	v = make([]byte, int(l))
-	_, err = io.ReadFull(buf, v)
+	_, err = io.ReadFull(r, v)
 	return
 }
 
-func readVarNum(buf io.Reader) (v uint64, err error) {
+func readVarNum(r io.Reader) (v uint64, err error) {
 	b := make([]byte, 8)
-	_, err = io.ReadFull(buf, b[:1])
+	_, err = io.ReadFull(r, b[:1])
 	if err != nil {
 		return
 	}
 	switch b[0] {
 	case 0xFF:
-		_, err = io.ReadFull(buf, b)
+		_, err = io.ReadFull(r, b)
 		if err != nil {
 			return
 		}
 		v = binary.BigEndian.Uint64(b)
 	case 0xFE:
-		_, err = io.ReadFull(buf, b[:4])
+		_, err = io.ReadFull(r, b[:4])
 		if err != nil {
 			return
 		}
 		v = uint64(binary.BigEndian.Uint32(b[:4]))
 	case 0xFD:
-		_, err = io.ReadFull(buf, b[:2])
+		_, err = io.ReadFull(r, b[:2])
 		if err != nil {
 			return
 		}
@@ -99,8 +99,8 @@ func decodeUint64(b []byte) uint64 {
 }
 
 func decodeValue(v []byte, value reflect.Value) (err error) {
-	if r, ok := value.Interface().(encoding.BinaryUnmarshaler); ok {
-		return r.UnmarshalBinary(v)
+	if i, ok := value.Interface().(encoding.BinaryUnmarshaler); ok {
+		return i.UnmarshalBinary(v)
 	}
 	switch value.Kind() {
 	case reflect.Bool:
@@ -148,15 +148,15 @@ func decodeValue(v []byte, value reflect.Value) (err error) {
 	return
 }
 
-func decode(buf Reader, value reflect.Value, valType uint64) (err error) {
+func decode(r Reader, value reflect.Value, valType uint64) (err error) {
 	var once bool
 	for {
-		if buf.Peek() != valType {
+		if r.Peek() != valType {
 			err = ErrUnexpectedType
 			break
 		}
 		var v []byte
-		_, v, err = readTLV(buf)
+		_, v, err = readTLV(r)
 		if err != nil {
 			break
 		}
@@ -175,7 +175,7 @@ func decode(buf Reader, value reflect.Value, valType uint64) (err error) {
 	return
 }
 
-func decodeStruct(buf Reader, structValue reflect.Value) (err error) {
+func decodeStruct(r Reader, structValue reflect.Value) (err error) {
 	for i := 0; i < structValue.NumField(); i++ {
 		fieldValue := structValue.Field(i)
 		var tag *structTag
@@ -186,7 +186,7 @@ func decodeStruct(buf Reader, structValue reflect.Value) (err error) {
 		if tag.Implicit {
 			continue
 		}
-		err = decode(buf, fieldValue, tag.Type)
+		err = decode(r, fieldValue, tag.Type)
 		if err != nil {
 			if tag.Optional {
 				err = nil
