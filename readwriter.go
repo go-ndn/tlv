@@ -1,14 +1,10 @@
 package tlv
 
-import (
-	"bufio"
-	"bytes"
-	"io"
-)
+import "io"
 
 type Reader interface {
-	io.Reader
 	Peek() uint64
+	Read() (uint64, []byte, error)
 }
 
 type Writer interface {
@@ -24,23 +20,28 @@ type WriteTo interface {
 }
 
 func NewReader(r io.Reader) Reader {
-	return &reader{rd: bufio.NewReader(r)}
+	return &reader{rd: r}
 }
 
 type reader struct {
-	rd *bufio.Reader
-	t  uint64
+	rd io.Reader
+
+	t uint64
+	v []byte
 }
 
 func (r *reader) Peek() uint64 {
 	if r.t == 0 {
-		b, _ := r.rd.Peek(9)
-		r.t, _ = readVarNum(bytes.NewReader(b))
+		r.t, r.v, _ = readTLV(r.rd)
 	}
 	return r.t
 }
 
-func (r *reader) Read(b []byte) (int, error) {
-	r.t = 0
-	return r.rd.Read(b)
+func (r *reader) Read() (uint64, []byte, error) {
+	if r.t == 0 {
+		return readTLV(r.rd)
+	}
+	t, v := r.t, r.v
+	r.t, r.v = 0, nil
+	return t, v, nil
 }

@@ -156,7 +156,7 @@ func decode(r Reader, value reflect.Value, valType uint64) (err error) {
 			break
 		}
 		var v []byte
-		_, v, err = readTLV(r)
+		_, v, err = r.Read()
 		if err != nil {
 			break
 		}
