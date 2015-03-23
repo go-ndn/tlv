@@ -99,9 +99,6 @@ func decodeUint64(b []byte) uint64 {
 }
 
 func decodeValue(v []byte, value reflect.Value) (err error) {
-	if i, ok := value.Interface().(encoding.BinaryUnmarshaler); ok {
-		return i.UnmarshalBinary(v)
-	}
 	switch value.Kind() {
 	case reflect.Bool:
 		value.SetBool(true)
@@ -123,18 +120,14 @@ func decodeValue(v []byte, value reflect.Value) (err error) {
 		value.SetString(string(v))
 	case reflect.Ptr:
 		if value.CanSet() {
-			// uninitialized
-			elem := reflect.New(value.Type().Elem())
-			err = decodeValue(v, elem.Elem())
-			if err != nil {
-				return
-			}
-			value.Set(elem)
-		} else {
-			err = decodeValue(v, value.Elem())
-			if err != nil {
-				return
-			}
+			value.Set(reflect.New(value.Type().Elem()))
+		}
+		if i, ok := value.Interface().(encoding.BinaryUnmarshaler); ok {
+			return i.UnmarshalBinary(v)
+		}
+		err = decodeValue(v, value.Elem())
+		if err != nil {
+			return
 		}
 	case reflect.Struct:
 		err = decodeStruct(NewReader(bytes.NewReader(v)), value)
@@ -177,12 +170,17 @@ func decode(r Reader, value reflect.Value, valType uint64) (err error) {
 
 func decodeStruct(r Reader, structValue reflect.Value) (err error) {
 	for i := 0; i < structValue.NumField(); i++ {
-		fieldValue := structValue.Field(i)
+		field := structValue.Type().Field(i)
+		if field.PkgPath != "" {
+			// unexported
+			continue
+		}
 		var tag *structTag
-		tag, err = parseTag(structValue.Type().Field(i).Tag)
+		tag, err = parseTag(field.Tag)
 		if err != nil {
 			return
 		}
+		fieldValue := structValue.Field(i)
 		if tag.Implicit {
 			continue
 		}

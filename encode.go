@@ -104,17 +104,6 @@ func parseTag(t reflect.StructTag) (tag *structTag, err error) {
 }
 
 func encode(w Writer, value reflect.Value, valType uint64, dataOnly bool) (err error) {
-	if i, ok := value.Interface().(encoding.BinaryMarshaler); ok {
-		var b []byte
-		b, err = i.MarshalBinary()
-		if err != nil {
-			return
-		}
-		writeVarNum(w, valType)
-		writeVarNum(w, uint64(len(b)))
-		_, err = w.Write(b)
-		return
-	}
 	switch value.Kind() {
 	case reflect.Bool:
 		if value.Bool() {
@@ -154,6 +143,17 @@ func encode(w Writer, value reflect.Value, valType uint64, dataOnly bool) (err e
 			return
 		}
 	case reflect.Ptr:
+		if i, ok := value.Interface().(encoding.BinaryMarshaler); ok {
+			var b []byte
+			b, err = i.MarshalBinary()
+			if err != nil {
+				return
+			}
+			writeVarNum(w, valType)
+			writeVarNum(w, uint64(len(b)))
+			_, err = w.Write(b)
+			return
+		}
 		err = encode(w, value.Elem(), valType, dataOnly)
 		if err != nil {
 			return
@@ -179,14 +179,19 @@ func encode(w Writer, value reflect.Value, valType uint64, dataOnly bool) (err e
 
 func encodeStruct(w Writer, structValue reflect.Value, dataOnly bool) (err error) {
 	for i := 0; i < structValue.NumField(); i++ {
-		fieldValue := structValue.Field(i)
+		field := structValue.Type().Field(i)
+		if field.PkgPath != "" {
+			// unexported
+			continue
+		}
 		var tag *structTag
-		tag, err = parseTag(structValue.Type().Field(i).Tag)
+		tag, err = parseTag(field.Tag)
 		if err != nil {
 			return
 		}
+		fieldValue := structValue.Field(i)
 		if tag.Implicit ||
-			dataOnly && tag.NotData ||
+			tag.NotData && dataOnly ||
 			tag.Optional && reflect.DeepEqual(fieldValue.Interface(), reflect.Zero(fieldValue.Type()).Interface()) {
 			continue
 		}

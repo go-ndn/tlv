@@ -6,37 +6,47 @@ import (
 	"testing"
 )
 
-type Container struct {
-	V uint64 `tlv:"6"`
+type test struct {
+	Num     []uint64 `tlv:"255"`
+	String  string   `tlv:"65535"`
+	Byte    []byte   `tlv:"4294967295"`
+	Bool    bool     `tlv:"18446744073709551615"`
+	Special *special `tlv:"1"`
 }
 
-type Test struct {
-	Num        uint64      `tlv:"1"`
-	String     string      `tlv:"2?"`
-	Bytes      []byte      `tlv:"3"`
-	Containers []Container `tlv:"5"`
+type special struct {
+	i int
+}
+
+func (s *special) MarshalBinary() ([]byte, error) {
+	return []byte{uint8(s.i)}, nil
+}
+
+func (s *special) UnmarshalBinary(b []byte) error {
+	if len(b) > 0 {
+		s.i = int(b[0])
+	}
+	return nil
 }
 
 var (
-	v1 = Test{
-		Num:    123,
-		String: "124",
-		Bytes:  []byte{0x1, 0x2, 0x3},
-		Containers: []Container{
-			{V: 100},
-			{V: 200},
-		},
+	v1 = &test{
+		Num:     []uint64{1<<8 - 1, 1<<16 - 1, 1<<32 - 1, 1<<64 - 1},
+		String:  "string",
+		Byte:    []byte{0x1, 0x2, 0x3},
+		Bool:    true,
+		Special: &special{i: 123},
 	}
 )
 
 func TestTLV(t *testing.T) {
 	buf := new(bytes.Buffer)
-	err := Marshal(buf, v1, 6)
+	err := Marshal(buf, v1, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	v2 := Test{}
-	err = Unmarshal(NewReader(buf), &v2, 6)
+	v2 := &test{}
+	err = Unmarshal(NewReader(buf), &v2, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
