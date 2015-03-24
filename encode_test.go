@@ -15,16 +15,16 @@ type test struct {
 }
 
 type special struct {
-	i int
+	i uint8
 }
 
 func (s *special) MarshalBinary() ([]byte, error) {
-	return []byte{uint8(s.i)}, nil
+	return []byte{s.i}, nil
 }
 
 func (s *special) UnmarshalBinary(b []byte) error {
 	if len(b) > 0 {
-		s.i = int(b[0])
+		s.i = b[0]
 	}
 	return nil
 }

@@ -32,7 +32,10 @@ type reader struct {
 
 func (r *reader) Peek() uint64 {
 	if r.t == 0 {
-		r.t, r.v, _ = readTLV(r.rd)
+		t, v, err := readTLV(r.rd)
+		if err == nil {
+			r.t, r.v = t, v
+		}
 	}
 	return r.t
 }
