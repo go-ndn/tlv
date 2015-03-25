@@ -11,7 +11,7 @@ type test struct {
 	String  string   `tlv:"65535"`
 	Byte    []byte   `tlv:"4294967295"`
 	Bool    bool     `tlv:"18446744073709551615"`
-	Special *special `tlv:"1"`
+	Special special  `tlv:"1"`
 }
 
 type special struct {
@@ -35,7 +35,7 @@ var (
 		String:  "string",
 		Byte:    []byte{0x1, 0x2, 0x3},
 		Bool:    true,
-		Special: &special{i: 123},
+		Special: special{i: 123},
 	}
 )
 

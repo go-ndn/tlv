@@ -118,14 +118,14 @@ func decodeValue(v []byte, value reflect.Value) (err error) {
 		if value.CanSet() {
 			value.Set(reflect.New(value.Type().Elem()))
 		}
-		if i, ok := value.Interface().(encoding.BinaryUnmarshaler); ok {
-			return i.UnmarshalBinary(v)
-		}
 		err = decodeValue(v, value.Elem())
 		if err != nil {
 			return
 		}
 	case reflect.Struct:
+		if i, ok := value.Addr().Interface().(encoding.BinaryUnmarshaler); ok {
+			return i.UnmarshalBinary(v)
+		}
 		err = decodeStruct(NewReader(bytes.NewReader(v)), value)
 		if err != nil {
 			return

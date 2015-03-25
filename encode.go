@@ -107,11 +107,20 @@ func encode(w Writer, value reflect.Value, valType uint64, dataOnly bool) (err e
 	switch value.Kind() {
 	case reflect.Bool:
 		if value.Bool() {
-			writeVarNum(w, valType)
-			w.Write([]byte{0})
+			err = writeVarNum(w, valType)
+			if err != nil {
+				return
+			}
+			_, err = w.Write([]byte{0})
+			if err != nil {
+				return
+			}
 		}
 	case reflect.Uint64:
-		writeVarNum(w, valType)
+		err = writeVarNum(w, valType)
+		if err != nil {
+			return
+		}
 		err = encodeUint64(w, value.Uint())
 		if err != nil {
 			return
@@ -119,9 +128,15 @@ func encode(w Writer, value reflect.Value, valType uint64, dataOnly bool) (err e
 	case reflect.Slice:
 		switch value.Type().Elem().Kind() {
 		case reflect.Uint8:
-			writeVarNum(w, valType)
+			err = writeVarNum(w, valType)
+			if err != nil {
+				return
+			}
 			b := value.Bytes()
-			writeVarNum(w, uint64(len(b)))
+			err = writeVarNum(w, uint64(len(b)))
+			if err != nil {
+				return
+			}
 			_, err = w.Write(b)
 			if err != nil {
 				return
@@ -135,37 +150,55 @@ func encode(w Writer, value reflect.Value, valType uint64, dataOnly bool) (err e
 			}
 		}
 	case reflect.String:
-		writeVarNum(w, valType)
+		err = writeVarNum(w, valType)
+		if err != nil {
+			return
+		}
 		s := value.String()
-		writeVarNum(w, uint64(len(s)))
+		err = writeVarNum(w, uint64(len(s)))
+		if err != nil {
+			return
+		}
 		_, err = w.Write([]byte(s))
 		if err != nil {
 			return
 		}
 	case reflect.Ptr:
-		if i, ok := value.Interface().(encoding.BinaryMarshaler); ok {
-			var b []byte
-			b, err = i.MarshalBinary()
-			if err != nil {
-				return
-			}
-			writeVarNum(w, valType)
-			writeVarNum(w, uint64(len(b)))
-			_, err = w.Write(b)
-			return
-		}
 		err = encode(w, value.Elem(), valType, dataOnly)
 		if err != nil {
 			return
 		}
 	case reflect.Struct:
+		if i, ok := value.Addr().Interface().(encoding.BinaryMarshaler); ok {
+			var b []byte
+			b, err = i.MarshalBinary()
+			if err != nil {
+				return
+			}
+			err = writeVarNum(w, valType)
+			if err != nil {
+				return
+			}
+			err = writeVarNum(w, uint64(len(b)))
+			if err != nil {
+				return
+			}
+			_, err = w.Write(b)
+			return
+		}
 		buf := new(bytes.Buffer)
 		err = encodeStruct(buf, value, dataOnly)
 		if err != nil {
 			return
 		}
-		writeVarNum(w, valType)
-		writeVarNum(w, uint64(buf.Len()))
+		err = writeVarNum(w, valType)
+		if err != nil {
+			return
+		}
+		err = writeVarNum(w, uint64(buf.Len()))
+		if err != nil {
+			return
+		}
 		_, err = buf.WriteTo(w)
 		if err != nil {
 			return
