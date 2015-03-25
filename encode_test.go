@@ -7,24 +7,25 @@ import (
 )
 
 type test struct {
-	Num     []uint64 `tlv:"255"`
-	String  string   `tlv:"65535"`
-	Byte    []byte   `tlv:"4294967295"`
-	Bool    bool     `tlv:"18446744073709551615"`
-	Special special  `tlv:"1"`
+	Num        []uint64 `tlv:"255"`
+	String     string   `tlv:"65535"`
+	Byte       []byte   `tlv:"4294967295"`
+	Bool       bool     `tlv:"18446744073709551615"`
+	Special    special  `tlv:"1"`
+	unexported uint8
 }
 
 type special struct {
-	i uint8
+	F uint8
 }
 
 func (s *special) MarshalBinary() ([]byte, error) {
-	return []byte{s.i}, nil
+	return []byte{s.F}, nil
 }
 
 func (s *special) UnmarshalBinary(b []byte) error {
-	if len(b) > 0 {
-		s.i = b[0]
+	if len(b) == 1 {
+		s.F = b[0]
 	}
 	return nil
 }
@@ -35,7 +36,7 @@ var (
 		String:  "string",
 		Byte:    []byte{0x1, 0x2, 0x3},
 		Bool:    true,
-		Special: special{i: 123},
+		Special: special{F: 1},
 	}
 )
 
@@ -45,7 +46,7 @@ func TestTLV(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	v2 := &test{}
+	v2 := new(test)
 	err = Unmarshal(NewReader(buf), &v2, 1)
 	if err != nil {
 		t.Fatal(err)
