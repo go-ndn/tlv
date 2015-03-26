@@ -44,7 +44,7 @@ func readTLV(r io.Reader) (t uint64, v []byte, err error) {
 		err = ErrPacketTooLarge
 		return
 	}
-	v = make([]byte, int(l))
+	v = make([]byte, l)
 	_, err = io.ReadFull(r, v)
 	return
 }
