@@ -30,17 +30,14 @@ func (s *special) UnmarshalBinary(b []byte) error {
 	return nil
 }
 
-var (
-	v1 = &test{
+func TestTLV(t *testing.T) {
+	v1 := &test{
 		Num:     []uint64{1<<8 - 1, 1<<16 - 1, 1<<32 - 1, 1<<64 - 1},
 		String:  "string",
 		Byte:    []byte{0x1, 0x2, 0x3},
 		Bool:    true,
 		Special: special{F: 1},
 	}
-)
-
-func TestTLV(t *testing.T) {
 	buf := new(bytes.Buffer)
 	err := Marshal(buf, v1, 1)
 	if err != nil {
