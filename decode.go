@@ -31,6 +31,10 @@ func Unmarshal(r Reader, i interface{}, valType uint64) error {
 	return decode(r, reflect.Indirect(reflect.ValueOf(i)), valType)
 }
 
+func UnmarshalByte(b []byte, i interface{}, valType uint64) error {
+	return Unmarshal(NewReader(bytes.NewReader(b)), i, valType)
+}
+
 func readTLV(r io.Reader) (t uint64, v []byte, err error) {
 	t, err = readVarNum(r)
 	if err != nil {

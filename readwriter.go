@@ -1,6 +1,9 @@
 package tlv
 
-import "io"
+import (
+	"bytes"
+	"io"
+)
 
 type Reader interface {
 	Peek() uint64
@@ -17,6 +20,16 @@ type ReadFrom interface {
 
 type WriteTo interface {
 	WriteTo(Writer) error
+}
+
+func Copy(from WriteTo, to ReadFrom) (err error) {
+	buf := new(bytes.Buffer)
+	err = from.WriteTo(buf)
+	if err != nil {
+		return
+	}
+	err = to.ReadFrom(NewReader(buf))
+	return
 }
 
 func NewReader(r io.Reader) Reader {

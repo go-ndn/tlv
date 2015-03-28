@@ -28,6 +28,16 @@ func Marshal(w Writer, i interface{}, valType uint64) error {
 	return encode(w, reflect.ValueOf(i), valType, false)
 }
 
+func MarshalByte(i interface{}, valType uint64) (b []byte, err error) {
+	buf := new(bytes.Buffer)
+	err = Marshal(buf, i, valType)
+	if err != nil {
+		return
+	}
+	b = buf.Bytes()
+	return
+}
+
 // Data writes all internal tlv bytes except * marked fields
 func Data(w Writer, i interface{}) error {
 	value := reflect.Indirect(reflect.ValueOf(i))
