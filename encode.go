@@ -105,11 +105,16 @@ func parseTag(t reflect.StructTag) (tag *structTag, err error) {
 		err = ErrMissingType
 		return
 	}
-	tag = new(structTag)
-	tag.Optional = strings.Contains(s, "?")
-	tag.NotData = strings.Contains(s, "*")
-	tag.Implicit = strings.Contains(s, "-")
-	tag.Type, err = strconv.ParseUint(strings.TrimRight(s, "?*-"), 10, 64)
+	valType, err := strconv.ParseUint(strings.TrimRight(s, "?*-"), 10, 64)
+	if err != nil {
+		return
+	}
+	tag = &structTag{
+		Optional: strings.Contains(s, "?"),
+		NotData:  strings.Contains(s, "*"),
+		Implicit: strings.Contains(s, "-"),
+		Type:     valType,
+	}
 	return
 }
 
