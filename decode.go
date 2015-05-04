@@ -36,11 +36,11 @@ func UnmarshalByte(b []byte, i interface{}, valType uint64) error {
 }
 
 func readTLV(r io.Reader) (t uint64, v []byte, err error) {
-	t, err = readVarNum(r)
+	t, err = ReadVarNum(r)
 	if err != nil {
 		return
 	}
-	l, err := readVarNum(r)
+	l, err := ReadVarNum(r)
 	if err != nil {
 		return
 	}
@@ -53,7 +53,7 @@ func readTLV(r io.Reader) (t uint64, v []byte, err error) {
 	return
 }
 
-func readVarNum(r io.Reader) (v uint64, err error) {
+func ReadVarNum(r io.Reader) (v uint64, err error) {
 	b := make([]byte, 8)
 	_, err = io.ReadFull(r, b[:1])
 	if err != nil {

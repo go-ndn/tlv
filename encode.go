@@ -5,6 +5,7 @@ import (
 	"encoding"
 	"encoding/binary"
 	"errors"
+	"io"
 	"math"
 	"reflect"
 	"strconv"
@@ -47,7 +48,7 @@ func Data(w Writer, i interface{}) error {
 	return encodeStruct(w, value, true)
 }
 
-func writeVarNum(w Writer, v uint64) (err error) {
+func WriteVarNum(w io.Writer, v uint64) (err error) {
 	b := make([]byte, 9)
 	switch {
 	case v > math.MaxUint32:
@@ -69,7 +70,7 @@ func writeVarNum(w Writer, v uint64) (err error) {
 	return
 }
 
-func encodeUint64(w Writer, v uint64) (err error) {
+func encodeUint64(w io.Writer, v uint64) (err error) {
 	b := make([]byte, 9)
 	switch {
 	case v > math.MaxUint32:
@@ -122,7 +123,7 @@ func encode(w Writer, value reflect.Value, valType uint64, dataOnly bool) (err e
 	switch value.Kind() {
 	case reflect.Bool:
 		if value.Bool() {
-			err = writeVarNum(w, valType)
+			err = WriteVarNum(w, valType)
 			if err != nil {
 				return
 			}
@@ -132,7 +133,7 @@ func encode(w Writer, value reflect.Value, valType uint64, dataOnly bool) (err e
 			}
 		}
 	case reflect.Uint64:
-		err = writeVarNum(w, valType)
+		err = WriteVarNum(w, valType)
 		if err != nil {
 			return
 		}
@@ -143,12 +144,12 @@ func encode(w Writer, value reflect.Value, valType uint64, dataOnly bool) (err e
 	case reflect.Slice:
 		switch value.Type().Elem().Kind() {
 		case reflect.Uint8:
-			err = writeVarNum(w, valType)
+			err = WriteVarNum(w, valType)
 			if err != nil {
 				return
 			}
 			b := value.Bytes()
-			err = writeVarNum(w, uint64(len(b)))
+			err = WriteVarNum(w, uint64(len(b)))
 			if err != nil {
 				return
 			}
@@ -165,12 +166,12 @@ func encode(w Writer, value reflect.Value, valType uint64, dataOnly bool) (err e
 			}
 		}
 	case reflect.String:
-		err = writeVarNum(w, valType)
+		err = WriteVarNum(w, valType)
 		if err != nil {
 			return
 		}
 		s := value.String()
-		err = writeVarNum(w, uint64(len(s)))
+		err = WriteVarNum(w, uint64(len(s)))
 		if err != nil {
 			return
 		}
@@ -190,11 +191,11 @@ func encode(w Writer, value reflect.Value, valType uint64, dataOnly bool) (err e
 			if err != nil {
 				return
 			}
-			err = writeVarNum(w, valType)
+			err = WriteVarNum(w, valType)
 			if err != nil {
 				return
 			}
-			err = writeVarNum(w, uint64(len(b)))
+			err = WriteVarNum(w, uint64(len(b)))
 			if err != nil {
 				return
 			}
@@ -206,11 +207,11 @@ func encode(w Writer, value reflect.Value, valType uint64, dataOnly bool) (err e
 		if err != nil {
 			return
 		}
-		err = writeVarNum(w, valType)
+		err = WriteVarNum(w, valType)
 		if err != nil {
 			return
 		}
-		err = writeVarNum(w, uint64(buf.Len()))
+		err = WriteVarNum(w, uint64(buf.Len()))
 		if err != nil {
 			return
 		}
