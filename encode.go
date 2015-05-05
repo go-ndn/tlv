@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"math"
+	"net"
 	"reflect"
 	"strconv"
 	"strings"
@@ -25,8 +26,14 @@ var (
 // '*': signature
 //
 // '-': implicit (never write)
-func Marshal(w Writer, i interface{}, valType uint64) error {
-	return encode(w, reflect.ValueOf(i), valType, false)
+func Marshal(w Writer, i interface{}, valType uint64) (err error) {
+	if _, ok := w.(net.PacketConn); ok {
+		b, _ := MarshalByte(i, valType)
+		_, err = w.Write(b)
+	} else {
+		err = encode(w, reflect.ValueOf(i), valType, false)
+	}
+	return
 }
 
 func MarshalByte(i interface{}, valType uint64) (b []byte, err error) {
