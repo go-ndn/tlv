@@ -180,9 +180,6 @@ func decodeStruct(r Reader, structValue reflect.Value) (err error) {
 		if err != nil {
 			return
 		}
-		if tag.Implicit {
-			continue
-		}
 		err = decode(r, structValue.Field(i), tag.Type)
 		if err != nil {
 			if tag.Optional {

@@ -23,8 +23,6 @@ var (
 // '?': do not write on zero value
 //
 // '*': signature
-//
-// '-': implicit (never write)
 func Marshal(w Writer, i interface{}, valType uint64) error {
 	return encode(w, reflect.ValueOf(i), valType, false)
 }
@@ -97,7 +95,6 @@ type structTag struct {
 	Type     uint64
 	Optional bool
 	NotData  bool
-	Implicit bool
 }
 
 func parseTag(t reflect.StructTag) (tag *structTag, err error) {
@@ -106,14 +103,13 @@ func parseTag(t reflect.StructTag) (tag *structTag, err error) {
 		err = ErrMissingType
 		return
 	}
-	valType, err := strconv.ParseUint(strings.TrimRight(s, "?*-"), 10, 64)
+	valType, err := strconv.ParseUint(strings.TrimRight(s, "?*"), 10, 64)
 	if err != nil {
 		return
 	}
 	tag = &structTag{
 		Optional: strings.Contains(s, "?"),
 		NotData:  strings.Contains(s, "*"),
-		Implicit: strings.Contains(s, "-"),
 		Type:     valType,
 	}
 	return
@@ -239,8 +235,7 @@ func encodeStruct(w Writer, structValue reflect.Value, dataOnly bool) (err error
 			return
 		}
 		fieldValue := structValue.Field(i)
-		if tag.Implicit ||
-			tag.NotData && dataOnly ||
+		if tag.NotData && dataOnly ||
 			tag.Optional && reflect.DeepEqual(fieldValue.Interface(), reflect.Zero(fieldValue.Type()).Interface()) {
 			continue
 		}
