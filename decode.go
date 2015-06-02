@@ -2,7 +2,6 @@ package tlv
 
 import (
 	"bytes"
-	"encoding"
 	"encoding/binary"
 	"errors"
 	"io"
@@ -127,9 +126,6 @@ func decodeValue(v []byte, value reflect.Value) (err error) {
 			return
 		}
 	case reflect.Struct:
-		if i, ok := value.Addr().Interface().(encoding.BinaryUnmarshaler); ok {
-			return i.UnmarshalBinary(v)
-		}
 		err = decodeStruct(NewReader(bytes.NewReader(v)), value)
 		if err != nil {
 			return

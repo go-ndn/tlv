@@ -2,7 +2,6 @@ package tlv
 
 import (
 	"bytes"
-	"encoding"
 	"encoding/binary"
 	"errors"
 	"io"
@@ -181,23 +180,6 @@ func encode(w Writer, value reflect.Value, valType uint64, dataOnly bool) (err e
 			return
 		}
 	case reflect.Struct:
-		if i, ok := value.Addr().Interface().(encoding.BinaryMarshaler); ok {
-			var b []byte
-			b, err = i.MarshalBinary()
-			if err != nil {
-				return
-			}
-			err = WriteVarNum(w, valType)
-			if err != nil {
-				return
-			}
-			err = WriteVarNum(w, uint64(len(b)))
-			if err != nil {
-				return
-			}
-			_, err = w.Write(b)
-			return
-		}
 		buf := new(bytes.Buffer)
 		err = encodeStruct(buf, value, dataOnly)
 		if err != nil {
