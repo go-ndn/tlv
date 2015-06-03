@@ -27,7 +27,7 @@ var (
 
 // Unmarshal reads arbitrary data from tlv.Reader
 func Unmarshal(r Reader, i interface{}, valType uint64) error {
-	return decode(r, reflect.Indirect(reflect.ValueOf(i)), valType)
+	return decode(r, reflect.ValueOf(i), valType, false)
 }
 
 func UnmarshalByte(b []byte, i interface{}, valType uint64) error {
@@ -97,19 +97,34 @@ func decodeUint64(b []byte) uint64 {
 	return 0
 }
 
-func decodeValue(v []byte, value reflect.Value) (err error) {
+func decodeValue(v []byte, value reflect.Value, extended bool) (err error) {
 	switch value.Kind() {
 	case reflect.Bool:
 		value.SetBool(true)
 	case reflect.Uint64:
 		value.SetUint(decodeUint64(v))
 	case reflect.Slice:
-		switch value.Type().Elem().Kind() {
+		elemType := value.Type().Elem()
+		switch elemType.Kind() {
 		case reflect.Uint8:
 			value.SetBytes(v)
+		case reflect.Struct:
+			if extended {
+				r := NewReader(bytes.NewReader(v))
+				for r.Peek() != 0 {
+					elem := reflect.New(elemType).Elem()
+					err = decodeStruct(r, elem)
+					if err != nil {
+						return
+					}
+					value.Set(reflect.Append(value, elem))
+				}
+				return
+			}
+			fallthrough
 		default:
-			elem := reflect.New(value.Type().Elem()).Elem()
-			err = decodeValue(v, elem)
+			elem := reflect.New(elemType).Elem()
+			err = decodeValue(v, elem, false)
 			if err != nil {
 				return
 			}
@@ -121,7 +136,7 @@ func decodeValue(v []byte, value reflect.Value) (err error) {
 		if value.CanSet() {
 			value.Set(reflect.New(value.Type().Elem()))
 		}
-		err = decodeValue(v, value.Elem())
+		err = decodeValue(v, value.Elem(), false)
 		if err != nil {
 			return
 		}
@@ -137,8 +152,8 @@ func decodeValue(v []byte, value reflect.Value) (err error) {
 	return
 }
 
-func decode(r Reader, value reflect.Value, valType uint64) (err error) {
-	var once bool
+func decode(r Reader, value reflect.Value, valType uint64, extended bool) (err error) {
+	var progress bool
 	for {
 		if r.Peek() != valType {
 			err = ErrUnexpectedType
@@ -149,41 +164,27 @@ func decode(r Reader, value reflect.Value, valType uint64) (err error) {
 		if err != nil {
 			break
 		}
-		err = decodeValue(v, value)
+		err = decodeValue(v, value, extended)
 		if err != nil {
 			break
 		}
-		once = true
-		if value.Kind() != reflect.Slice || value.Type().Elem().Kind() == reflect.Uint8 {
+		progress = true
+		if value.Kind() != reflect.Slice || value.Type().Elem().Kind() == reflect.Uint8 || extended {
 			break
 		}
 	}
-	if once {
+	if progress {
 		err = nil
 	}
 	return
 }
 
-func decodeStruct(r Reader, structValue reflect.Value) (err error) {
-	for i := 0; i < structValue.NumField(); i++ {
-		field := structValue.Type().Field(i)
-		if field.PkgPath != "" {
-			// unexported
-			continue
+func decodeStruct(r Reader, structValue reflect.Value) error {
+	return walkStruct(structValue.Type(), func(tag *structTag, i int) (err error) {
+		err = decode(r, structValue.Field(i), tag.Type, tag.Extended)
+		if err != nil && tag.Optional {
+			err = nil
 		}
-		var tag *structTag
-		tag, err = parseTag(field.Tag)
-		if err != nil {
-			return
-		}
-		err = decode(r, structValue.Field(i), tag.Type)
-		if err != nil {
-			if tag.Optional {
-				err = nil
-			} else {
-				return
-			}
-		}
-	}
-	return
+		return
+	})
 }

@@ -23,7 +23,7 @@ var (
 //
 // '*': signature
 func Marshal(w Writer, i interface{}, valType uint64) error {
-	return encode(w, reflect.ValueOf(i), valType, false)
+	return encode(w, reflect.ValueOf(i), valType, false, false)
 }
 
 func MarshalByte(i interface{}, valType uint64) (b []byte, err error) {
@@ -94,6 +94,7 @@ type structTag struct {
 	Type     uint64
 	Optional bool
 	NotData  bool
+	Extended bool
 }
 
 func parseTag(t reflect.StructTag) (tag *structTag, err error) {
@@ -102,19 +103,20 @@ func parseTag(t reflect.StructTag) (tag *structTag, err error) {
 		err = ErrMissingType
 		return
 	}
-	valType, err := strconv.ParseUint(strings.TrimRight(s, "?*"), 10, 64)
+	valType, err := strconv.ParseUint(strings.TrimRight(s, "?*+"), 10, 64)
 	if err != nil {
 		return
 	}
 	tag = &structTag{
 		Optional: strings.Contains(s, "?"),
 		NotData:  strings.Contains(s, "*"),
+		Extended: strings.Contains(s, "+"),
 		Type:     valType,
 	}
 	return
 }
 
-func encode(w Writer, value reflect.Value, valType uint64, dataOnly bool) (err error) {
+func encode(w Writer, value reflect.Value, valType uint64, dataOnly, extended bool) (err error) {
 	switch value.Kind() {
 	case reflect.Bool:
 		if value.Bool() {
@@ -152,9 +154,30 @@ func encode(w Writer, value reflect.Value, valType uint64, dataOnly bool) (err e
 			if err != nil {
 				return
 			}
+		case reflect.Struct:
+			if extended {
+				buf := new(bytes.Buffer)
+				for j := 0; j < value.Len(); j++ {
+					err = encodeStruct(buf, value.Index(j), dataOnly)
+					if err != nil {
+						return
+					}
+				}
+				err = WriteVarNum(w, valType)
+				if err != nil {
+					return
+				}
+				err = WriteVarNum(w, uint64(buf.Len()))
+				if err != nil {
+					return
+				}
+				_, err = buf.WriteTo(w)
+				return
+			}
+			fallthrough
 		default:
 			for j := 0; j < value.Len(); j++ {
-				err = encode(w, value.Index(j), valType, dataOnly)
+				err = encode(w, value.Index(j), valType, dataOnly, false)
 				if err != nil {
 					return
 				}
@@ -175,7 +198,7 @@ func encode(w Writer, value reflect.Value, valType uint64, dataOnly bool) (err e
 			return
 		}
 	case reflect.Ptr:
-		err = encode(w, value.Elem(), valType, dataOnly)
+		err = encode(w, value.Elem(), valType, dataOnly, false)
 		if err != nil {
 			return
 		}
@@ -204,9 +227,9 @@ func encode(w Writer, value reflect.Value, valType uint64, dataOnly bool) (err e
 	return
 }
 
-func encodeStruct(w Writer, structValue reflect.Value, dataOnly bool) (err error) {
-	for i := 0; i < structValue.NumField(); i++ {
-		field := structValue.Type().Field(i)
+func walkStruct(structType reflect.Type, f func(*structTag, int) error) (err error) {
+	for i := 0; i < structType.NumField(); i++ {
+		field := structType.Field(i)
 		if field.PkgPath != "" {
 			// unexported
 			continue
@@ -216,16 +239,21 @@ func encodeStruct(w Writer, structValue reflect.Value, dataOnly bool) (err error
 		if err != nil {
 			return
 		}
-		fieldValue := structValue.Field(i)
-		if tag.NotData && dataOnly ||
-			tag.Optional && reflect.DeepEqual(fieldValue.Interface(), reflect.Zero(fieldValue.Type()).Interface()) {
-			continue
-		}
-
-		err = encode(w, fieldValue, tag.Type, dataOnly)
+		err = f(tag, i)
 		if err != nil {
 			return
 		}
 	}
 	return
+}
+
+func encodeStruct(w Writer, structValue reflect.Value, dataOnly bool) error {
+	return walkStruct(structValue.Type(), func(tag *structTag, i int) error {
+		fieldValue := structValue.Field(i)
+		if tag.NotData && dataOnly ||
+			tag.Optional && reflect.DeepEqual(fieldValue.Interface(), reflect.Zero(fieldValue.Type()).Interface()) {
+			return nil
+		}
+		return encode(w, fieldValue, tag.Type, dataOnly, tag.Extended)
+	})
 }
