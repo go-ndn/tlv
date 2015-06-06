@@ -117,6 +117,10 @@ func decodeValue(v []byte, value reflect.Value, extended bool) (err error) {
 					if err != nil {
 						return
 					}
+					if isZero(elem) {
+						err = ErrUnexpectedType
+						return
+					}
 					value.Set(reflect.Append(value, elem))
 				}
 				return

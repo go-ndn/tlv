@@ -251,11 +251,15 @@ func walkStruct(structType reflect.Type, f func(*structTag, int) error) (err err
 	return
 }
 
+func isZero(value reflect.Value) bool {
+	return reflect.DeepEqual(value.Interface(), reflect.Zero(value.Type()).Interface())
+}
+
 func encodeStruct(w Writer, structValue reflect.Value, dataOnly bool) error {
 	return walkStruct(structValue.Type(), func(tag *structTag, i int) error {
 		fieldValue := structValue.Field(i)
 		if tag.NotData && dataOnly ||
-			tag.Optional && reflect.DeepEqual(fieldValue.Interface(), reflect.Zero(fieldValue.Type()).Interface()) {
+			tag.Optional && isZero(fieldValue) {
 			return nil
 		}
 		return encode(w, fieldValue, tag.Type, dataOnly, tag.Extended)
