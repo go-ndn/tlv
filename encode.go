@@ -239,6 +239,10 @@ func walkStruct(structType reflect.Type, f func(*structTag, int) error) (err err
 		if err != nil {
 			return
 		}
+		if tag.Extended && (field.Type.Kind() != reflect.Slice || field.Type.Elem().Kind() != reflect.Struct) {
+			err = ErrNotSupported
+			return
+		}
 		err = f(tag, i)
 		if err != nil {
 			return
