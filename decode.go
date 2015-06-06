@@ -110,20 +110,35 @@ func decodeValue(v []byte, value reflect.Value, extended bool) (err error) {
 			value.SetBytes(v)
 		case reflect.Struct:
 			if extended {
+				var valTypes []uint64
+				err = walkStruct(elemType, func(tag *structTag, _ int) error {
+					valTypes = append(valTypes, tag.Type)
+					return nil
+				})
+				if err != nil {
+					return
+				}
 				r := NewReader(bytes.NewReader(v))
-				for r.Peek() != 0 {
+				for {
+					t := r.Peek()
+					if t == 0 {
+						return
+					}
+					for _, valType := range valTypes {
+						if t == valType {
+							goto DECODE
+						}
+					}
+					err = ErrNotSupported
+					return
+				DECODE:
 					elem := reflect.New(elemType).Elem()
 					err = decodeStruct(r, elem)
 					if err != nil {
 						return
 					}
-					if isZero(elem) {
-						err = ErrUnexpectedType
-						return
-					}
 					value.Set(reflect.Append(value, elem))
 				}
-				return
 			}
 			fallthrough
 		default:
