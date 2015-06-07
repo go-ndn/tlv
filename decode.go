@@ -129,7 +129,7 @@ func decodeValue(v []byte, value reflect.Value, extended bool) (err error) {
 							goto DECODE
 						}
 					}
-					err = ErrNotSupported
+					err = ErrUnexpectedType
 					return
 				DECODE:
 					elem := reflect.New(elemType).Elem()
