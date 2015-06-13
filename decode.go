@@ -189,7 +189,7 @@ func decode(r Reader, value reflect.Value, valType uint64, extended bool) (err e
 		}
 		progress = true
 		if value.Kind() != reflect.Slice || value.Type().Elem().Kind() == reflect.Uint8 || extended {
-			break
+			return
 		}
 	}
 	if progress {

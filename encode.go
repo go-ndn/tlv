@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"hash"
 	"io"
 	"math"
 	"reflect"
@@ -36,13 +37,19 @@ func MarshalByte(i interface{}, valType uint64) (b []byte, err error) {
 	return
 }
 
-// Data writes all internal tlv bytes except * marked fields
-func Data(w Writer, i interface{}) error {
+func Hash(f func() hash.Hash, i interface{}) (digest []byte, err error) {
 	value := reflect.Indirect(reflect.ValueOf(i))
 	if value.Kind() != reflect.Struct {
-		return ErrNotSupported
+		err = ErrNotSupported
+		return
 	}
-	return encodeStruct(w, value, true)
+	h := f()
+	err = encodeStruct(h, value, true)
+	if err != nil {
+		return
+	}
+	digest = h.Sum(nil)
+	return
 }
 
 func WriteVarNum(w io.Writer, v uint64) (err error) {
@@ -91,10 +98,10 @@ func encodeUint64(w io.Writer, v uint64) (err error) {
 }
 
 type structTag struct {
-	Type     uint64
-	Optional bool
-	NotData  bool
-	Extended bool
+	Type      uint64
+	Optional  bool
+	Signature bool
+	Extended  bool
 }
 
 func parseTag(t reflect.StructTag) (tag *structTag, err error) {
@@ -108,15 +115,15 @@ func parseTag(t reflect.StructTag) (tag *structTag, err error) {
 		return
 	}
 	tag = &structTag{
-		Optional: strings.Contains(s, "?"),
-		NotData:  strings.Contains(s, "*"),
-		Extended: strings.Contains(s, "+"),
-		Type:     valType,
+		Type:      valType,
+		Optional:  strings.Contains(s, "?"),
+		Signature: strings.Contains(s, "*"),
+		Extended:  strings.Contains(s, "+"),
 	}
 	return
 }
 
-func encode(w Writer, value reflect.Value, valType uint64, dataOnly, extended bool) (err error) {
+func encode(w Writer, value reflect.Value, valType uint64, noSignature, extended bool) (err error) {
 	switch value.Kind() {
 	case reflect.Bool:
 		if value.Bool() {
@@ -158,7 +165,7 @@ func encode(w Writer, value reflect.Value, valType uint64, dataOnly, extended bo
 			if extended {
 				buf := new(bytes.Buffer)
 				for j := 0; j < value.Len(); j++ {
-					err = encodeStruct(buf, value.Index(j), dataOnly)
+					err = encodeStruct(buf, value.Index(j), noSignature)
 					if err != nil {
 						return
 					}
@@ -177,7 +184,7 @@ func encode(w Writer, value reflect.Value, valType uint64, dataOnly, extended bo
 			fallthrough
 		default:
 			for j := 0; j < value.Len(); j++ {
-				err = encode(w, value.Index(j), valType, dataOnly, false)
+				err = encode(w, value.Index(j), valType, noSignature, false)
 				if err != nil {
 					return
 				}
@@ -198,13 +205,13 @@ func encode(w Writer, value reflect.Value, valType uint64, dataOnly, extended bo
 			return
 		}
 	case reflect.Ptr:
-		err = encode(w, value.Elem(), valType, dataOnly, false)
+		err = encode(w, value.Elem(), valType, noSignature, false)
 		if err != nil {
 			return
 		}
 	case reflect.Struct:
 		buf := new(bytes.Buffer)
-		err = encodeStruct(buf, value, dataOnly)
+		err = encodeStruct(buf, value, noSignature)
 		if err != nil {
 			return
 		}
@@ -255,13 +262,13 @@ func isZero(value reflect.Value) bool {
 	return reflect.DeepEqual(value.Interface(), reflect.Zero(value.Type()).Interface())
 }
 
-func encodeStruct(w Writer, structValue reflect.Value, dataOnly bool) error {
+func encodeStruct(w Writer, structValue reflect.Value, noSignature bool) error {
 	return walkStruct(structValue.Type(), func(tag *structTag, i int) error {
 		fieldValue := structValue.Field(i)
-		if tag.NotData && dataOnly ||
+		if tag.Signature && noSignature ||
 			tag.Optional && isZero(fieldValue) {
 			return nil
 		}
-		return encode(w, fieldValue, tag.Type, dataOnly, tag.Extended)
+		return encode(w, fieldValue, tag.Type, noSignature, tag.Extended)
 	})
 }
