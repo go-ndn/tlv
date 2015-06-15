@@ -27,7 +27,8 @@ var (
 
 // Unmarshal reads arbitrary data from tlv.Reader
 func Unmarshal(r Reader, i interface{}, valType uint64) error {
-	return decode(r, reflect.ValueOf(i), valType, false)
+	// redirect is required for ptr to slice
+	return decode(r, reflect.Indirect(reflect.ValueOf(i)), valType, false)
 }
 
 func UnmarshalByte(b []byte, i interface{}, valType uint64) error {
