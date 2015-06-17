@@ -2,6 +2,7 @@ package tlv
 
 import (
 	"bytes"
+	"encoding"
 	"encoding/binary"
 	"errors"
 	"io"
@@ -28,7 +29,7 @@ var (
 // Unmarshal reads arbitrary data from tlv.Reader
 func Unmarshal(r Reader, i interface{}, valType uint64) error {
 	// redirect is required for ptr to slice
-	return decode(r, reflect.Indirect(reflect.ValueOf(i)), valType, false)
+	return decode(r, reflect.Indirect(reflect.ValueOf(i)), valType)
 }
 
 func UnmarshalByte(b []byte, i interface{}, valType uint64) error {
@@ -98,7 +99,11 @@ func decodeUint64(b []byte) uint64 {
 	return 0
 }
 
-func decodeValue(v []byte, value reflect.Value, extended bool) (err error) {
+func decodeValue(v []byte, value reflect.Value) (err error) {
+	if i, ok := value.Interface().(encoding.BinaryUnmarshaler); ok {
+		err = i.UnmarshalBinary(v)
+		return
+	}
 	switch value.Kind() {
 	case reflect.Bool:
 		value.SetBool(true)
@@ -109,42 +114,9 @@ func decodeValue(v []byte, value reflect.Value, extended bool) (err error) {
 		switch elemType.Kind() {
 		case reflect.Uint8:
 			value.SetBytes(v)
-		case reflect.Struct:
-			if extended {
-				var valTypes []uint64
-				err = walkStruct(elemType, func(tag *structTag, _ int) error {
-					valTypes = append(valTypes, tag.Type)
-					return nil
-				})
-				if err != nil {
-					return
-				}
-				r := NewReader(bytes.NewReader(v))
-				for {
-					t := r.Peek()
-					if t == 0 {
-						return
-					}
-					for _, valType := range valTypes {
-						if t == valType {
-							goto DECODE
-						}
-					}
-					err = ErrUnexpectedType
-					return
-				DECODE:
-					elem := reflect.New(elemType).Elem()
-					err = decodeStruct(r, elem)
-					if err != nil {
-						return
-					}
-					value.Set(reflect.Append(value, elem))
-				}
-			}
-			fallthrough
 		default:
 			elem := reflect.New(elemType).Elem()
-			err = decodeValue(v, elem, false)
+			err = decodeValue(v, elem)
 			if err != nil {
 				return
 			}
@@ -156,7 +128,7 @@ func decodeValue(v []byte, value reflect.Value, extended bool) (err error) {
 		if value.CanSet() {
 			value.Set(reflect.New(value.Type().Elem()))
 		}
-		err = decodeValue(v, value.Elem(), false)
+		err = decodeValue(v, value.Elem())
 		if err != nil {
 			return
 		}
@@ -172,7 +144,7 @@ func decodeValue(v []byte, value reflect.Value, extended bool) (err error) {
 	return
 }
 
-func decode(r Reader, value reflect.Value, valType uint64, extended bool) (err error) {
+func decode(r Reader, value reflect.Value, valType uint64) (err error) {
 	var progress bool
 	for {
 		if r.Peek() != valType {
@@ -184,12 +156,12 @@ func decode(r Reader, value reflect.Value, valType uint64, extended bool) (err e
 		if err != nil {
 			break
 		}
-		err = decodeValue(v, value, extended)
+		err = decodeValue(v, value)
 		if err != nil {
 			break
 		}
 		progress = true
-		if value.Kind() != reflect.Slice || value.Type().Elem().Kind() == reflect.Uint8 || extended {
+		if value.Kind() != reflect.Slice || value.Type().Elem().Kind() == reflect.Uint8 {
 			return
 		}
 	}
@@ -201,7 +173,7 @@ func decode(r Reader, value reflect.Value, valType uint64, extended bool) (err e
 
 func decodeStruct(r Reader, structValue reflect.Value) error {
 	return walkStruct(structValue.Type(), func(tag *structTag, i int) (err error) {
-		err = decode(r, structValue.Field(i), tag.Type, tag.Extended)
+		err = decode(r, structValue.Field(i), tag.Type)
 		if err != nil && tag.Optional {
 			err = nil
 		}

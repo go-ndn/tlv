@@ -5,13 +5,8 @@ import (
 	"testing"
 )
 
-type extended []struct {
-	String1 string `tlv:"1"`
-	String2 string `tlv:"2"`
-}
-
 type test struct {
-	Extended   extended `tlv:"252+"`
+	String     string   `tlv:"252"`
 	Num        []uint64 `tlv:"65535"`
 	Byte       []byte   `tlv:"4294967295"`
 	Bool       bool     `tlv:"18446744073709551615"`
@@ -28,15 +23,10 @@ func (t *test) WriteTo(w Writer) error {
 
 func TestTLV(t *testing.T) {
 	v1 := &test{
-		Extended: extended{
-			{"one", "1"},
-			{"two", "2"},
-			{"three", "3"},
-			{"four", "4"},
-		},
-		Num:  []uint64{1<<8 - 1, 1<<16 - 1, 1<<32 - 1, 1<<64 - 1},
-		Byte: []byte{0x1, 0x2, 0x3},
-		Bool: true,
+		String: "one",
+		Num:    []uint64{1<<8 - 1, 1<<16 - 1, 1<<32 - 1, 1<<64 - 1},
+		Byte:   []byte{0x1, 0x2, 0x3},
+		Bool:   true,
 	}
 
 	v2 := new(test)
