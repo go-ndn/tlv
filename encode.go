@@ -53,7 +53,7 @@ func Hash(f func() hash.Hash, i interface{}) (digest []byte, err error) {
 	return
 }
 
-func WriteVarNum(w io.Writer, v uint64) (err error) {
+func writeVarNum(w io.Writer, v uint64) (err error) {
 	b := make([]byte, 9)
 	switch {
 	case v > math.MaxUint32:
@@ -129,11 +129,11 @@ func encode(w Writer, value reflect.Value, valType uint64, noSignature bool) (er
 		if err != nil {
 			return
 		}
-		err = WriteVarNum(w, valType)
+		err = writeVarNum(w, valType)
 		if err != nil {
 			return
 		}
-		err = WriteVarNum(w, uint64(len(b)))
+		err = writeVarNum(w, uint64(len(b)))
 		if err != nil {
 			return
 		}
@@ -143,7 +143,7 @@ func encode(w Writer, value reflect.Value, valType uint64, noSignature bool) (er
 	switch value.Kind() {
 	case reflect.Bool:
 		if value.Bool() {
-			err = WriteVarNum(w, valType)
+			err = writeVarNum(w, valType)
 			if err != nil {
 				return
 			}
@@ -153,7 +153,7 @@ func encode(w Writer, value reflect.Value, valType uint64, noSignature bool) (er
 			}
 		}
 	case reflect.Uint64:
-		err = WriteVarNum(w, valType)
+		err = writeVarNum(w, valType)
 		if err != nil {
 			return
 		}
@@ -164,12 +164,12 @@ func encode(w Writer, value reflect.Value, valType uint64, noSignature bool) (er
 	case reflect.Slice:
 		switch value.Type().Elem().Kind() {
 		case reflect.Uint8:
-			err = WriteVarNum(w, valType)
+			err = writeVarNum(w, valType)
 			if err != nil {
 				return
 			}
 			b := value.Bytes()
-			err = WriteVarNum(w, uint64(len(b)))
+			err = writeVarNum(w, uint64(len(b)))
 			if err != nil {
 				return
 			}
@@ -186,12 +186,12 @@ func encode(w Writer, value reflect.Value, valType uint64, noSignature bool) (er
 			}
 		}
 	case reflect.String:
-		err = WriteVarNum(w, valType)
+		err = writeVarNum(w, valType)
 		if err != nil {
 			return
 		}
 		s := value.String()
-		err = WriteVarNum(w, uint64(len(s)))
+		err = writeVarNum(w, uint64(len(s)))
 		if err != nil {
 			return
 		}
@@ -210,11 +210,11 @@ func encode(w Writer, value reflect.Value, valType uint64, noSignature bool) (er
 		if err != nil {
 			return
 		}
-		err = WriteVarNum(w, valType)
+		err = writeVarNum(w, valType)
 		if err != nil {
 			return
 		}
-		err = WriteVarNum(w, uint64(buf.Len()))
+		err = writeVarNum(w, uint64(buf.Len()))
 		if err != nil {
 			return
 		}
