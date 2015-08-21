@@ -33,11 +33,11 @@ func Copy(from WriteTo, to ReadFrom) (err error) {
 }
 
 func NewReader(r io.Reader) Reader {
-	return &reader{rd: r}
+	return &reader{Reader: r}
 }
 
 type reader struct {
-	rd io.Reader
+	io.Reader
 
 	t uint64
 	v []byte
@@ -45,7 +45,7 @@ type reader struct {
 
 func (r *reader) Peek() uint64 {
 	if r.t == 0 {
-		t, v, err := readTLV(r.rd)
+		t, v, err := readTLV(r.Reader)
 		if err == nil {
 			r.t, r.v = t, v
 		}
@@ -55,7 +55,7 @@ func (r *reader) Peek() uint64 {
 
 func (r *reader) Read() (uint64, []byte, error) {
 	if r.t == 0 {
-		return readTLV(r.rd)
+		return readTLV(r.Reader)
 	}
 	t, v := r.t, r.v
 	r.t, r.v = 0, nil
