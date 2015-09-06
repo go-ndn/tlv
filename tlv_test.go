@@ -47,7 +47,7 @@ func TestTLV(t *testing.T) {
 
 	for _, v := range []*test{v2, v3} {
 		if !reflect.DeepEqual(v1, v) {
-			t.Fatalf("expect %#v, got %#v", v1, v)
+			t.Fatalf("expect %+v, got %+v", v1, v)
 		}
 	}
 }
