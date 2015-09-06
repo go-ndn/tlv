@@ -22,13 +22,13 @@ type WriteTo interface {
 	WriteTo(Writer) error
 }
 
-func Copy(from WriteTo, to ReadFrom) (err error) {
+func Copy(dst ReadFrom, src WriteTo) (err error) {
 	buf := new(bytes.Buffer)
-	err = from.WriteTo(buf)
+	err = src.WriteTo(buf)
 	if err != nil {
 		return
 	}
-	err = to.ReadFrom(NewReader(buf))
+	err = dst.ReadFrom(NewReader(buf))
 	return
 }
 

@@ -40,7 +40,7 @@ func TestTLV(t *testing.T) {
 	}
 
 	v3 := new(test)
-	err = Copy(v1, v3)
+	err = Copy(v3, v1)
 	if err != nil {
 		t.Fatal(err)
 	}
