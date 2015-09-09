@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-type test struct {
+type testStruct struct {
 	String     string   `tlv:"252"`
 	Num        []uint64 `tlv:"65535"`
 	Byte       []byte   `tlv:"4294967295"`
@@ -13,23 +13,23 @@ type test struct {
 	unexported uint8
 }
 
-func (t *test) ReadFrom(r Reader) error {
+func (t *testStruct) ReadFrom(r Reader) error {
 	return Unmarshal(r, t, 1)
 }
 
-func (t *test) WriteTo(w Writer) error {
+func (t *testStruct) WriteTo(w Writer) error {
 	return Marshal(w, t, 1)
 }
 
 func TestTLV(t *testing.T) {
-	v1 := &test{
+	v1 := &testStruct{
 		String: "one",
 		Num:    []uint64{1<<8 - 1, 1<<16 - 1, 1<<32 - 1, 1<<64 - 1},
 		Byte:   []byte{0x1, 0x2, 0x3},
 		Bool:   true,
 	}
 
-	v2 := new(test)
+	v2 := new(testStruct)
 	b, err := MarshalByte(v1, 1)
 	if err != nil {
 		t.Fatal(err)
@@ -39,13 +39,13 @@ func TestTLV(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	v3 := new(test)
+	v3 := new(testStruct)
 	err = Copy(v3, v1)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	for _, v := range []*test{v2, v3} {
+	for _, v := range []*testStruct{v2, v3} {
 		if !reflect.DeepEqual(v1, v) {
 			t.Fatalf("expect %+v, got %+v", v1, v)
 		}
