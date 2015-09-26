@@ -8,13 +8,19 @@ import (
 )
 
 var (
-	ErrMissingType = errors.New("type not specified")
+	ErrMissingType  = errors.New("type not specified")
+	errNotZeroValue = errors.New("value not zero")
 )
 
 type structTag struct {
 	Type      uint64
 	Optional  bool
 	Signature bool
+}
+
+// TODO: strings.TrimRight allocates due to strings.makeCutsetFunc
+func isOption(r rune) bool {
+	return strings.IndexRune("?*", r) >= 0
 }
 
 func (tag *structTag) parse(t reflect.StructTag) (err error) {
@@ -25,7 +31,7 @@ func (tag *structTag) parse(t reflect.StructTag) (err error) {
 	}
 	tag.Optional = strings.Contains(s, "?")
 	tag.Signature = strings.Contains(s, "*")
-	tag.Type, err = strconv.ParseUint(strings.TrimRight(s, "?*"), 10, 64)
+	tag.Type, err = strconv.ParseUint(strings.TrimRightFunc(s, isOption), 10, 64)
 	return
 }
 
@@ -49,6 +55,27 @@ func walkStruct(structType reflect.Type, f func(*structTag, int) error) (err err
 	return
 }
 
+// TODO: reflect.Zero allocates
 func isZero(value reflect.Value) bool {
-	return reflect.DeepEqual(value.Interface(), reflect.Zero(value.Type()).Interface())
+	switch value.Kind() {
+	case reflect.Bool:
+		return !value.Bool()
+	case reflect.Uint64:
+		return value.Uint() == 0
+	case reflect.Slice:
+		fallthrough
+	case reflect.String:
+		return value.Len() == 0
+	case reflect.Ptr:
+		return value.IsNil() || isZero(value.Elem())
+	case reflect.Struct:
+		return nil == walkStruct(value.Type(), func(_ *structTag, i int) error {
+			if isZero(value.Field(i)) {
+				return nil
+			}
+			return errNotZeroValue
+		})
+	default:
+		return false
+	}
 }

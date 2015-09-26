@@ -95,10 +95,14 @@ func writeStruct(b []byte, structValue reflect.Value, noSignature bool) (n int, 
 	return
 }
 
+var (
+	typeBinaryMarshaler = reflect.TypeOf((*encoding.BinaryMarshaler)(nil)).Elem()
+)
+
 func writeTLV(b []byte, t uint64, value reflect.Value, noSignature bool) (n int, err error) {
-	if i, ok := value.Interface().(encoding.BinaryMarshaler); ok {
+	if value.Type().Implements(typeBinaryMarshaler) {
 		var v []byte
-		v, err = i.MarshalBinary()
+		v, err = value.Interface().(encoding.BinaryMarshaler).MarshalBinary()
 		if err != nil {
 			return
 		}

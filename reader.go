@@ -154,9 +154,13 @@ func readStruct(v []byte, structValue reflect.Value) error {
 	})
 }
 
+var (
+	typeBinaryUnmarshaler = reflect.TypeOf((*encoding.BinaryUnmarshaler)(nil)).Elem()
+)
+
 func readValue(v []byte, value reflect.Value) (err error) {
-	if i, ok := value.Interface().(encoding.BinaryUnmarshaler); ok {
-		err = i.UnmarshalBinary(v)
+	if value.Type().Implements(typeBinaryUnmarshaler) {
+		err = value.Interface().(encoding.BinaryUnmarshaler).UnmarshalBinary(v)
 		return
 	}
 	switch value.Kind() {
