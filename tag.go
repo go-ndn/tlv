@@ -35,17 +35,67 @@ func (tag *structTag) parse(t reflect.StructTag) (err error) {
 	return
 }
 
-func walkStruct(structType reflect.Type, f func(*structTag, int) error) (err error) {
-	tag := new(structTag)
+func parseStruct(structType reflect.Type) (tags []*structTag, err error) {
 	for i := 0; i < structType.NumField(); i++ {
 		field := structType.Field(i)
 		if field.PkgPath != "" {
 			// unexported
+			tags = append(tags, nil)
 			continue
 		}
+		tag := new(structTag)
 		err = tag.parse(field.Tag)
 		if err != nil {
 			return
+		}
+		tags = append(tags, tag)
+	}
+	return
+}
+
+var (
+	cache = make(map[reflect.Type][]*structTag)
+)
+
+// reduce allocation on struct.Field
+func CacheType(t reflect.Type) (err error) {
+	if _, ok := cache[t]; ok {
+		return
+	}
+	switch t.Kind() {
+	case reflect.Ptr:
+		CacheType(t.Elem())
+	case reflect.Struct:
+		var tags []*structTag
+		tags, err = parseStruct(t)
+		if err != nil {
+			return
+		}
+		cache[t] = tags
+		for i, tag := range tags {
+			if tag == nil {
+				continue
+			}
+			err = CacheType(t.Field(i).Type)
+			if err != nil {
+				return
+			}
+		}
+	}
+	return
+}
+
+func walkStruct(structType reflect.Type, f func(*structTag, int) error) (err error) {
+	tags, ok := cache[structType]
+	if !ok {
+		tags, err = parseStruct(structType)
+		if err != nil {
+			return
+		}
+	}
+	for i, tag := range tags {
+		if tag == nil {
+			continue
 		}
 		err = f(tag, i)
 		if err != nil {

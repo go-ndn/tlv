@@ -3,6 +3,7 @@ package tlv
 import "reflect"
 
 func UnmarshalByte(b []byte, v interface{}, t uint64) error {
-	_, err := readTLV(b, t, reflect.ValueOf(v))
+	// redirect is required for ptr to slice
+	_, err := readTLV(b, t, reflect.Indirect(reflect.ValueOf(v)))
 	return err
 }

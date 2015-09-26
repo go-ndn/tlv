@@ -101,6 +101,7 @@ func (r *reader) Read(v interface{}, t uint64) (err error) {
 		err = io.EOF
 		return
 	}
+	// redirect is required for ptr to slice
 	_, err = readTLV(r.b, t, reflect.Indirect(reflect.ValueOf(v)))
 	r.valid = false
 	return
