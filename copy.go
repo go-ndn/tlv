@@ -43,7 +43,7 @@ func cpy(dst, src reflect.Value) (err error) {
 	case reflect.String:
 		dst.SetString(src.String())
 	case reflect.Ptr:
-		if dst.CanSet() {
+		if dst.IsNil() {
 			dst.Set(reflect.New(dst.Type().Elem()))
 		}
 		err = cpy(dst.Elem(), src.Elem())

@@ -32,49 +32,109 @@ var (
 	}
 )
 
-func TestTLV(t *testing.T) {
-	v1 := new(testStruct)
-	b, err := MarshalByte(ref, 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = UnmarshalByte(b, v1, 1)
-	if err != nil {
-		t.Fatal(err)
-	}
+func TestMarshal(t *testing.T) {
+	CacheType(reflect.TypeOf((*testStruct)(nil)))
 
-	buf := new(bytes.Buffer)
-	err = ref.WriteTo(NewWriter(buf))
-	if err != nil {
-		t.Fatal(err)
-	}
-	v2 := new(testStruct)
-	err = v2.ReadFrom(NewReader(buf))
-	if err != nil {
-		t.Fatal(err)
-	}
+	for _, test := range []struct {
+		to   interface{}
+		from interface{}
+	}{
+		{
+			from: &ref.String,
+			to:   new(string),
+		},
+		{
+			from: &ref.Bool,
+			to:   new(bool),
+		},
+		{
+			from: &ref.Num,
+			to:   &[]uint64{},
+		},
+		{
+			from: &ref.Byte,
+			to:   &[]byte{},
+		},
+		{
+			from: ref,
+			to:   new(testStruct),
+		},
+	} {
+		b, err := MarshalByte(test.from, 1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = UnmarshalByte(b, test.to, 1)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	v3 := new(testStruct)
-	err = Copy(v3, ref)
+		if !reflect.DeepEqual(test.from, test.to) {
+			t.Fatalf("expect %+v, got %+v", test.from, test.to)
+		}
+	}
+}
+
+func TestReadWriter(t *testing.T) {
+	CacheType(reflect.TypeOf((*testStruct)(nil)))
+
+	for _, test := range []struct {
+		to   interface{}
+		from interface{}
+	}{
+		{
+			from: &ref.String,
+			to:   new(string),
+		},
+		{
+			from: &ref.Bool,
+			to:   new(bool),
+		},
+		// ignore []uint64 because reader can only read in one tlv
+		{
+			from: &ref.Byte,
+			to:   &[]byte{},
+		},
+		{
+			from: ref,
+			to:   new(testStruct),
+		},
+	} {
+		buf := new(bytes.Buffer)
+		err := NewWriter(buf).Write(test.from, 1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = NewReader(buf).Read(test.to, 1)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !reflect.DeepEqual(test.from, test.to) {
+			t.Fatalf("expect %+v, got %+v", test.from, test.to)
+		}
+	}
+}
+
+func TestCopyHash(t *testing.T) {
+	v := new(testStruct)
+	err := Copy(v, ref)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(ref, v) {
+		t.Fatalf("expect %+v, got %+v", ref, v)
 	}
 
 	want, err := Hash(sha256.New, ref)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, v := range []*testStruct{v1, v2, v3} {
-		if !reflect.DeepEqual(ref, v) {
-			t.Fatalf("expect %+v, got %+v", ref, v)
-		}
-
-		got, err := Hash(sha256.New, v)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !bytes.Equal(want, got) {
-			t.Fatalf("expect %v, got %v", want, got)
-		}
+	got, err := Hash(sha256.New, v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(want, got) {
+		t.Fatalf("expect %v, got %v", want, got)
 	}
 }

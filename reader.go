@@ -187,7 +187,7 @@ func readValue(v []byte, value reflect.Value) (err error) {
 	case reflect.String:
 		value.SetString(string(v))
 	case reflect.Ptr:
-		if value.CanSet() {
+		if value.IsNil() {
 			value.Set(reflect.New(value.Type().Elem()))
 		}
 		err = readValue(v, value.Elem())
