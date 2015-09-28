@@ -25,6 +25,9 @@ func cpy(dst, src reflect.Value) (err error) {
 	case reflect.Uint64:
 		dst.SetUint(src.Uint())
 	case reflect.Slice:
+		if src.IsNil() {
+			return
+		}
 		switch dst.Type().Elem().Kind() {
 		case reflect.Uint8:
 			srcb := src.Bytes()
@@ -43,6 +46,9 @@ func cpy(dst, src reflect.Value) (err error) {
 	case reflect.String:
 		dst.SetString(src.String())
 	case reflect.Ptr:
+		if src.IsNil() {
+			return
+		}
 		if dst.IsNil() {
 			dst.Set(reflect.New(dst.Type().Elem()))
 		}

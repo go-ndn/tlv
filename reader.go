@@ -12,6 +12,7 @@ var (
 	ErrPacketTooLarge = errors.New("exceed max size")
 	ErrNotSupported   = errors.New("feature not supported")
 	ErrUnexpectedType = errors.New("type not match")
+	ErrInvalidPtr     = errors.New("invalid pointer")
 )
 
 type Reader interface {
@@ -101,8 +102,13 @@ func (r *reader) Read(v interface{}, t uint64) (err error) {
 		err = io.EOF
 		return
 	}
-	// redirect is required for ptr to slice
-	_, err = readTLV(r.b, t, reflect.Indirect(reflect.ValueOf(v)))
+
+	value := reflect.ValueOf(v)
+	if value.Kind() != reflect.Ptr || value.IsNil() {
+		err = ErrInvalidPtr
+		return
+	}
+	_, err = readTLV(r.b, t, value.Elem())
 	r.valid = false
 	return
 }
