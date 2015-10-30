@@ -166,8 +166,8 @@ var (
 )
 
 func readValue(v []byte, value reflect.Value) (err error) {
-	if value.Type().Implements(typeBinaryUnmarshaler) {
-		err = value.Interface().(encoding.BinaryUnmarshaler).UnmarshalBinary(v)
+	if value.Addr().Type().Implements(typeBinaryUnmarshaler) {
+		err = value.Addr().Interface().(encoding.BinaryUnmarshaler).UnmarshalBinary(v)
 		return
 	}
 	switch value.Kind() {

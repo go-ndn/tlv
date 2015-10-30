@@ -5,13 +5,15 @@ import (
 	"crypto/sha256"
 	"reflect"
 	"testing"
+	"time"
 )
 
 type testStruct struct {
-	String     string   `tlv:"252"`
-	Num        []uint64 `tlv:"65535"`
-	Byte       []byte   `tlv:"4294967295"`
-	Bool       bool     `tlv:"18446744073709551615"`
+	Time       time.Time `tlv:"1"`
+	String     string    `tlv:"252"`
+	Num        []uint64  `tlv:"65535"`
+	Byte       []byte    `tlv:"4294967295"`
+	Bool       bool      `tlv:"18446744073709551615"`
 	unexported uint8
 }
 
@@ -25,6 +27,7 @@ func (t *testStruct) WriteTo(w Writer) error {
 
 var (
 	ref = &testStruct{
+		Time:   time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC),
 		String: "one",
 		Num:    []uint64{1<<8 - 1, 1<<16 - 1, 1<<32 - 1, 1<<64 - 1},
 		Byte:   []byte{0x1, 0x2, 0x3},
@@ -39,6 +42,10 @@ func TestMarshal(t *testing.T) {
 		to   interface{}
 		from interface{}
 	}{
+		{
+			from: &ref.Time,
+			to:   new(time.Time),
+		},
 		{
 			from: &ref.String,
 			to:   new(string),

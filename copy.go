@@ -2,12 +2,15 @@ package tlv
 
 import (
 	"bytes"
+	"encoding"
 	"reflect"
 )
 
 func Copy(dst ReadFrom, src WriteTo) (err error) {
-	if reflect.TypeOf(dst) == reflect.TypeOf(src) {
-		return cpy(reflect.ValueOf(dst), reflect.ValueOf(src))
+	dstValue, srcValue := reflect.ValueOf(dst), reflect.ValueOf(src)
+	if dstValue.Kind() == reflect.Ptr && !dstValue.IsNil() &&
+		dstValue.Type() == srcValue.Type() {
+		return cpy(dstValue.Elem(), srcValue.Elem())
 	}
 	buf := new(bytes.Buffer)
 	err = src.WriteTo(NewWriter(buf))
@@ -19,11 +22,16 @@ func Copy(dst ReadFrom, src WriteTo) (err error) {
 }
 
 func cpy(dst, src reflect.Value) (err error) {
+	if src.Type().Implements(typeBinaryMarshaler) && dst.Addr().Type().Implements(typeBinaryUnmarshaler) {
+		var v []byte
+		v, err = src.Interface().(encoding.BinaryMarshaler).MarshalBinary()
+		if err != nil {
+			return
+		}
+		err = dst.Addr().Interface().(encoding.BinaryUnmarshaler).UnmarshalBinary(v)
+		return
+	}
 	switch dst.Kind() {
-	case reflect.Bool:
-		dst.SetBool(src.Bool())
-	case reflect.Uint64:
-		dst.SetUint(src.Uint())
 	case reflect.Slice:
 		if src.IsNil() {
 			return
@@ -43,8 +51,6 @@ func cpy(dst, src reflect.Value) (err error) {
 				}
 			}
 		}
-	case reflect.String:
-		dst.SetString(src.String())
 	case reflect.Ptr:
 		if src.IsNil() {
 			return
@@ -57,6 +63,12 @@ func cpy(dst, src reflect.Value) (err error) {
 		return walkStruct(dst.Type(), func(_ *structTag, i int) error {
 			return cpy(dst.Field(i), src.Field(i))
 		})
+	case reflect.String:
+		fallthrough
+	case reflect.Bool:
+		fallthrough
+	case reflect.Uint64:
+		dst.Set(src)
 	default:
 		err = ErrNotSupported
 	}
