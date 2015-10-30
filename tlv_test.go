@@ -9,7 +9,8 @@ import (
 )
 
 type testStruct struct {
-	Time       time.Time `tlv:"1"`
+	Ptr        *struct{} `tlv:"1"`
+	Time       time.Time `tlv:"2"`
 	String     string    `tlv:"252"`
 	Num        []uint64  `tlv:"65535"`
 	Byte       []byte    `tlv:"4294967295"`
@@ -27,6 +28,7 @@ func (t *testStruct) WriteTo(w Writer) error {
 
 var (
 	ref = &testStruct{
+		Ptr:    new(struct{}),
 		Time:   time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC),
 		String: "one",
 		Num:    []uint64{1<<8 - 1, 1<<16 - 1, 1<<32 - 1, 1<<64 - 1},
@@ -36,8 +38,6 @@ var (
 )
 
 func TestMarshal(t *testing.T) {
-	CacheType(reflect.TypeOf((*testStruct)(nil)))
-
 	for _, test := range []struct {
 		to   interface{}
 		from interface{}
@@ -83,12 +83,14 @@ func TestMarshal(t *testing.T) {
 }
 
 func TestReadWriter(t *testing.T) {
-	CacheType(reflect.TypeOf((*testStruct)(nil)))
-
 	for _, test := range []struct {
 		to   interface{}
 		from interface{}
 	}{
+		{
+			from: &ref.Time,
+			to:   new(time.Time),
+		},
 		{
 			from: &ref.String,
 			to:   new(string),

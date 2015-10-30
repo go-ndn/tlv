@@ -5,6 +5,22 @@ import (
 	"testing"
 )
 
+func TestCacheType(t *testing.T) {
+	err := CacheType(reflect.TypeOf((*testStruct)(nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, test := range []reflect.Type{
+		reflect.TypeOf(ref.Time),
+		reflect.TypeOf(*ref),
+	} {
+		if _, ok := cache[test]; !ok {
+			t.Fatalf("expect %v", test)
+		}
+	}
+}
+
 func TestIsZero(t *testing.T) {
 	for _, test := range []struct {
 		in   interface{}
