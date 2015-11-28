@@ -12,7 +12,7 @@ import (
 // '?': do not write on zero value
 //
 // '*': signature
-func MarshalByte(v interface{}, t uint64) (b []byte, err error) {
+func Marshal(v interface{}, t uint64) (b []byte, err error) {
 	b = make([]byte, maxSize)
 	n, err := writeTLV(b, t, reflect.ValueOf(v), false)
 	if err != nil {

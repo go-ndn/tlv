@@ -67,11 +67,11 @@ func TestMarshal(t *testing.T) {
 			to:   new(testStruct),
 		},
 	} {
-		b, err := MarshalByte(test.from, 1)
+		b, err := Marshal(test.from, 1)
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = UnmarshalByte(b, test.to, 1)
+		err = Unmarshal(b, test.to, 1)
 		if err != nil {
 			t.Fatal(err)
 		}

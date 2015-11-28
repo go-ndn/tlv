@@ -2,7 +2,7 @@ package tlv
 
 import "reflect"
 
-func UnmarshalByte(b []byte, v interface{}, t uint64) error {
+func Unmarshal(b []byte, v interface{}, t uint64) error {
 	value := reflect.ValueOf(v)
 	if value.Kind() != reflect.Ptr || value.IsNil() {
 		return ErrInvalidPtr
