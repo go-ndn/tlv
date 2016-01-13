@@ -24,7 +24,7 @@ type writer struct {
 func NewWriter(w io.Writer) Writer {
 	return &writer{
 		Writer: w,
-		b:      make([]byte, maxSize),
+		b:      make([]byte, MaxSize),
 	}
 }
 

@@ -33,7 +33,7 @@ type reader struct {
 func NewReader(r io.Reader) Reader {
 	return &reader{
 		Reader: r,
-		b:      make([]byte, maxSize),
+		b:      make([]byte, MaxSize),
 	}
 }
 

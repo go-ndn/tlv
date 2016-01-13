@@ -13,7 +13,7 @@ import (
 //
 // '*': signature
 func Marshal(v interface{}, t uint64) (b []byte, err error) {
-	b = make([]byte, maxSize)
+	b = make([]byte, MaxSize)
 	n, err := writeTLV(b, t, reflect.ValueOf(v), false)
 	if err != nil {
 		return
@@ -28,7 +28,7 @@ func Hash(f func() hash.Hash, v interface{}) (digest []byte, err error) {
 		err = ErrNotSupported
 		return
 	}
-	b := make([]byte, maxSize)
+	b := make([]byte, MaxSize)
 	n, err := writeStruct(b, value, true)
 	if err != nil {
 		return

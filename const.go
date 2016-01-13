@@ -8,5 +8,5 @@ package tlv
 // 4. Some OSs have a limited default UDP packet size (MacOS: net.inet.udp.maxdgram: 9216) and/or a limited space for receive buffers (MacOS: net.inet.udp.recvspace: 42080)
 // 5. When a ContentObject is signed it is not known whether the transmission path will be UDP / TCP / ..
 const (
-	maxSize = 8800
+	MaxSize = 8800
 )
