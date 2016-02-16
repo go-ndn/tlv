@@ -179,6 +179,9 @@ func readValue(v []byte, value reflect.Value) (err error) {
 		elemType := value.Type().Elem()
 		switch elemType.Kind() {
 		case reflect.Uint8:
+			if len(v) == 0 {
+				return
+			}
 			b := make([]byte, len(v))
 			copy(b, v)
 			value.SetBytes(b)
