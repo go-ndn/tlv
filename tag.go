@@ -38,7 +38,7 @@ func (tag *structTag) parse(t reflect.StructTag) (err error) {
 func parseStruct(structType reflect.Type) (tags []*structTag, err error) {
 	for i := 0; i < structType.NumField(); i++ {
 		field := structType.Field(i)
-		if field.PkgPath != "" {
+		if field.PkgPath != "" && !field.Anonymous {
 			// unexported
 			tags = append(tags, nil)
 			continue
