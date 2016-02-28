@@ -6,6 +6,9 @@ import (
 	"reflect"
 )
 
+// Copy copies from src to dst.
+// If src and dst have the same type, it will perform direct copying with reflection.
+// Otherwise copying will happen with tlv representation.
 func Copy(dst ReadFrom, src WriteTo) (err error) {
 	dstValue, srcValue := reflect.ValueOf(dst), reflect.ValueOf(src)
 	if dstValue.Kind() == reflect.Ptr && !dstValue.IsNil() &&

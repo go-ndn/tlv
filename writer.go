@@ -8,10 +8,12 @@ import (
 	"reflect"
 )
 
+// Writer encodes data in tlv.
 type Writer interface {
 	Write(interface{}, uint64) error
 }
 
+// WriteTo includes its type number, and can be directly encoded with Writer.
 type WriteTo interface {
 	WriteTo(Writer) error
 }
@@ -21,6 +23,7 @@ type writer struct {
 	b []byte
 }
 
+// NewWriter creates a new buffered Writer.
 func NewWriter(w io.Writer) Writer {
 	return &writer{
 		Writer: w,
@@ -116,7 +119,7 @@ func writeTLV(b []byte, t uint64, value reflect.Value, noSignature bool) (n int,
 		if value.Bool() {
 			n += writeVarNum(b[n:], t)
 			b[n] = 0
-			n += 1
+			n++
 		}
 	case reflect.Uint64:
 		n += writeVarNum(b[n:], t)

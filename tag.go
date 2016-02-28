@@ -7,6 +7,7 @@ import (
 	"strings"
 )
 
+// Errors introduced by parsing struct tags.
 var (
 	ErrMissingType  = errors.New("type not specified")
 	errNotZeroValue = errors.New("value not zero")
@@ -35,6 +36,9 @@ func (tag *structTag) parse(t reflect.StructTag) (err error) {
 	return
 }
 
+// parseStruct parses tag of every struct field.
+//
+// An unexported field is represented by nil instead.
 func parseStruct(structType reflect.Type) (tags []*structTag, err error) {
 	for i := 0; i < structType.NumField(); i++ {
 		field := structType.Field(i)
@@ -57,7 +61,7 @@ var (
 	cache = make(map[reflect.Type][]*structTag)
 )
 
-// reduce allocation on struct.Field
+// CacheType caches struct tags to prevent allocation on common types.
 func CacheType(t reflect.Type) (err error) {
 	if _, ok := cache[t]; ok {
 		return
@@ -85,6 +89,7 @@ func CacheType(t reflect.Type) (err error) {
 	return
 }
 
+// walkStruct parses tag of every struct field, and invokes f if the field is exported.
 func walkStruct(structType reflect.Type, f func(*structTag, int) error) (err error) {
 	tags, ok := cache[structType]
 	if !ok {
@@ -105,6 +110,8 @@ func walkStruct(structType reflect.Type, f func(*structTag, int) error) (err err
 	return
 }
 
+// isZero checks whether reflect.Value is empty.
+//
 // TODO: reflect.Zero allocates
 func isZero(value reflect.Value) bool {
 	switch value.Kind() {

@@ -6,9 +6,9 @@ It marshals and unmarshals [go types](https://golang.org/ref/spec#Types) directl
 
 ## Supported types
 
-* [encoding.BinaryMarshaller and encoding.BinaryUnmarshaller](http://golang.org/pkg/encoding/)
-* bool
-* uint64
-* string
-* pointer and slice of any types above
-* struct of any types above
+- [encoding.BinaryMarshaller and encoding.BinaryUnmarshaller](http://golang.org/pkg/encoding/)
+- bool
+- uint64
+- string
+- pointer and slice of any types above
+- struct of any types above

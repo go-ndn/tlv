@@ -8,6 +8,7 @@ import (
 	"reflect"
 )
 
+// Errors introduced by encoding and decoding.
 var (
 	ErrPacketTooLarge = errors.New("exceed max size")
 	ErrNotSupported   = errors.New("feature not supported")
@@ -15,11 +16,19 @@ var (
 	ErrInvalidPtr     = errors.New("invalid pointer")
 )
 
+// Reader decodes tlv-encoded data.
 type Reader interface {
+	// Peek returns the tlv type without advancing.
+	//
+	// If the buffer is invalid, it will be filled with the next tlv block.
 	Peek() uint64
+	// Read reads current tlv block into v.
+	//
+	// If the buffer is invalid, it will be filled with the next tlv block.
 	Read(interface{}, uint64) error
 }
 
+// ReadFrom includes its type number, and can be directly decoded with Reader.
 type ReadFrom interface {
 	ReadFrom(Reader) error
 }
@@ -30,6 +39,7 @@ type reader struct {
 	valid bool
 }
 
+// NewReader creates a new buffered Reader.
 func NewReader(r io.Reader) Reader {
 	return &reader{
 		Reader: r,
@@ -48,6 +58,7 @@ func (r *reader) Peek() uint64 {
 	return v
 }
 
+// fillVarNum fills b with the next non-negative integer in variable-length encoding.
 func fillVarNum(r io.Reader, b []byte) (n int, err error) {
 	_, err = io.ReadFull(r, b[:1])
 	if err != nil {
@@ -67,6 +78,7 @@ func fillVarNum(r io.Reader, b []byte) (n int, err error) {
 	return
 }
 
+// fill fills b with the next tlv-encoded block.
 func (r *reader) fill() (err error) {
 	var n int
 	nn, err := fillVarNum(r.Reader, r.b[n:])
@@ -208,6 +220,10 @@ func readValue(v []byte, value reflect.Value) (err error) {
 	return
 }
 
+// readTLV reads current tlv block if the type number matches.
+//
+// If reflect.Value is type of slice but not []byte, it will
+// continue to read until the type number does not match.
 func readTLV(b []byte, expectType uint64, value reflect.Value) (n int, err error) {
 	var progress bool
 

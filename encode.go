@@ -5,13 +5,11 @@ import (
 	"reflect"
 )
 
-// Marshal writes arbitrary data to tlv.Writer
+// Marshal returns the tlv encoding of v.
 //
-// Struct tag is "tlv", which specifies tlv type number.
-//
-// '?': do not write on zero value
-//
-// '*': signature
+// The "tlv" struct tag specifies tlv type number.
+// '?' after type number indicates that this tlv
+// should be omitted if the value is empty.
 func Marshal(v interface{}, t uint64) (b []byte, err error) {
 	b = make([]byte, MaxSize)
 	n, err := writeTLV(b, t, reflect.ValueOf(v), false)
@@ -22,6 +20,12 @@ func Marshal(v interface{}, t uint64) (b []byte, err error) {
 	return
 }
 
+// Hash returns the digest of tlv-encoded data.
+//
+// See Marshal.
+//
+// '*' after type number indicates this tlv
+// is signature, and should be omitted in digest calculation.
 func Hash(f func() hash.Hash, v interface{}) (digest []byte, err error) {
 	value := reflect.Indirect(reflect.ValueOf(v))
 	if value.Kind() != reflect.Struct {
