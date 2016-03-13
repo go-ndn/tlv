@@ -49,10 +49,10 @@ func NewReader(r io.Reader) Reader {
 
 func (r *reader) Peek() uint64 {
 	if !r.valid {
-		r.fill()
-	}
-	if !r.valid {
-		return 0
+		err := r.fill()
+		if err != nil {
+			return 0
+		}
 	}
 	_, v := readVarNum(r.b)
 	return v
@@ -108,11 +108,10 @@ func (r *reader) fill() (err error) {
 
 func (r *reader) Read(v interface{}, t uint64) (err error) {
 	if !r.valid {
-		r.fill()
-	}
-	if !r.valid {
-		err = io.EOF
-		return
+		err = r.fill()
+		if err != nil {
+			return
+		}
 	}
 
 	value := reflect.ValueOf(v)
