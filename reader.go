@@ -187,8 +187,7 @@ func readValue(v []byte, value reflect.Value) (err error) {
 	case reflect.Uint64:
 		value.SetUint(readUint64(v))
 	case reflect.Slice:
-		elemType := value.Type().Elem()
-		switch elemType.Kind() {
+		switch value.Type().Elem().Kind() {
 		case reflect.Uint8:
 			if len(v) == 0 {
 				return
@@ -197,12 +196,29 @@ func readValue(v []byte, value reflect.Value) (err error) {
 			copy(b, v)
 			value.SetBytes(b)
 		default:
-			elem := reflect.New(elemType).Elem()
-			err = readValue(v, elem)
+			i0 := value.Len()
+			m := value.Cap()
+			// grow slice capacity
+			if i0 == m {
+				if m == 0 {
+					m = 16
+				} else {
+					if m < 1024 {
+						m += m
+					} else {
+						m += m / 4
+					}
+				}
+				value2 := reflect.MakeSlice(value.Type(), i0, m)
+				reflect.Copy(value2, value)
+				value.Set(value2)
+			}
+			value.SetLen(i0 + 1)
+			err = readValue(v, value.Index(i0))
 			if err != nil {
+				value.SetLen(i0)
 				return
 			}
-			value.Set(reflect.Append(value, elem))
 		}
 	case reflect.String:
 		value.SetString(string(v))

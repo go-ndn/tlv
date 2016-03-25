@@ -6,7 +6,7 @@ import (
 )
 
 func TestCacheType(t *testing.T) {
-	err := CacheType(reflect.TypeOf((*testStruct)(nil)))
+	err := CacheType((*testStruct)(nil))
 	if err != nil {
 		t.Fatal(err)
 	}

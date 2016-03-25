@@ -62,13 +62,20 @@ var (
 )
 
 // CacheType caches struct tags to prevent allocation on common types.
-func CacheType(t reflect.Type) (err error) {
+func CacheType(v interface{}) error {
+	return cacheType(reflect.TypeOf(v))
+}
+
+func cacheType(t reflect.Type) (err error) {
 	if _, ok := cache[t]; ok {
 		return
 	}
 	switch t.Kind() {
 	case reflect.Ptr:
-		CacheType(t.Elem())
+		err = cacheType(t.Elem())
+		if err != nil {
+			return
+		}
 	case reflect.Struct:
 		var tags []*structTag
 		tags, err = parseStruct(t)
@@ -80,7 +87,7 @@ func CacheType(t reflect.Type) (err error) {
 			if tag == nil {
 				continue
 			}
-			err = CacheType(t.Field(i).Type)
+			err = cacheType(t.Field(i).Type)
 			if err != nil {
 				return
 			}
