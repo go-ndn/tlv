@@ -6,7 +6,7 @@ It marshals and unmarshals [go types](https://golang.org/ref/spec#Types) directl
 
 ## Supported types
 
-- [encoding.BinaryMarshaller and encoding.BinaryUnmarshaller](http://golang.org/pkg/encoding/)
+- [encoding.BinaryMarshaler and encoding.BinaryUnmarshaler](http://golang.org/pkg/encoding/)
 - bool
 - uint64
 - string
