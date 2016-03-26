@@ -15,7 +15,7 @@ func TestCacheType(t *testing.T) {
 		reflect.TypeOf(ref.Time),
 		reflect.TypeOf(*ref),
 	} {
-		if _, ok := cache[test]; !ok {
+		if _, ok := cacheMap[test]; !ok {
 			t.Fatalf("expect %v", test)
 		}
 	}

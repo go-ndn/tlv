@@ -58,7 +58,7 @@ func parseStruct(structType reflect.Type) (tags []*structTag, err error) {
 }
 
 var (
-	cache = make(map[reflect.Type][]*structTag)
+	cacheMap = make(map[reflect.Type][]*structTag)
 )
 
 // CacheType caches struct tags to prevent allocation on common types.
@@ -67,22 +67,19 @@ func CacheType(v interface{}) error {
 }
 
 func cacheType(t reflect.Type) (err error) {
-	if _, ok := cache[t]; ok {
+	if _, ok := cacheMap[t]; ok {
 		return
 	}
 	switch t.Kind() {
 	case reflect.Ptr:
-		err = cacheType(t.Elem())
-		if err != nil {
-			return
-		}
+		return cacheType(t.Elem())
 	case reflect.Struct:
 		var tags []*structTag
 		tags, err = parseStruct(t)
 		if err != nil {
 			return
 		}
-		cache[t] = tags
+		cacheMap[t] = tags
 		for i, tag := range tags {
 			if tag == nil {
 				continue
@@ -98,7 +95,7 @@ func cacheType(t reflect.Type) (err error) {
 
 // walkStruct parses tag of every struct field, and invokes f if the field is exported.
 func walkStruct(structType reflect.Type, f func(*structTag, int) error) (err error) {
-	tags, ok := cache[structType]
+	tags, ok := cacheMap[structType]
 	if !ok {
 		tags, err = parseStruct(structType)
 		if err != nil {
