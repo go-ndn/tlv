@@ -125,7 +125,7 @@ func TestReadWriter(t *testing.T) {
 	}
 }
 
-func TestCopyHash(t *testing.T) {
+func TestCopy(t *testing.T) {
 	v := new(testStruct)
 	err := Copy(v, ref)
 	if err != nil {
@@ -134,12 +134,16 @@ func TestCopyHash(t *testing.T) {
 	if !reflect.DeepEqual(ref, v) {
 		t.Fatalf("expect %+v, got %+v", ref, v)
 	}
+}
 
-	want, err := Hash(sha256.New, ref)
-	if err != nil {
-		t.Fatal(err)
+func TestHash(t *testing.T) {
+	var want = []byte{
+		0xab, 0xed, 0x36, 0x46, 0x42, 0x6d, 0xfd, 0x9a,
+		0xf8, 0x73, 0x3a, 0x4, 0xd0, 0x3e, 0x53, 0x95,
+		0x95, 0x14, 0xb4, 0xc2, 0x8b, 0x6, 0xc3, 0x77,
+		0xc7, 0xf5, 0x4c, 0xfb, 0x2d, 0x69, 0x58, 0xc8,
 	}
-	got, err := Hash(sha256.New, v)
+	got, err := Hash(sha256.New, ref)
 	if err != nil {
 		t.Fatal(err)
 	}
