@@ -197,22 +197,6 @@ func readValue(v []byte, value reflect.Value) (err error) {
 			value.SetBytes(b)
 		default:
 			i0 := value.Len()
-			m := value.Cap()
-			// grow slice capacity
-			if i0 == m {
-				if m == 0 {
-					m = 16
-				} else {
-					if m < 1024 {
-						m += m
-					} else {
-						m += m / 4
-					}
-				}
-				value2 := reflect.MakeSlice(value.Type(), i0, m)
-				reflect.Copy(value2, value)
-				value.Set(value2)
-			}
 			value.SetLen(i0 + 1)
 			err = readValue(v, value.Index(i0))
 			if err != nil {
@@ -235,19 +219,43 @@ func readValue(v []byte, value reflect.Value) (err error) {
 	return
 }
 
+func countTLV(b []byte, expectType uint64, mult bool) (count int) {
+	var n int
+	for len(b[n:]) != 0 {
+		nn, t := readVarNum(b[n:])
+		if t != expectType {
+			break
+		}
+		n += nn
+		nn, l := readVarNum(b[n:])
+		n += nn + int(l)
+		count++
+
+		if !mult {
+			break
+		}
+	}
+	return
+}
+
 // readTLV reads current tlv block if the type number matches.
 //
 // If reflect.Value is type of slice but not []byte, it will
 // continue to read until the type number does not match.
 func readTLV(b []byte, expectType uint64, value reflect.Value) (n int, err error) {
-	var progress bool
+	isSlice := value.Kind() == reflect.Slice && value.Type().Elem().Kind() != reflect.Uint8
 
-	for len(b[n:]) != 0 {
-		nn, t := readVarNum(b[n:])
-		if t != expectType {
-			err = ErrUnexpectedType
-			break
-		}
+	count := countTLV(b, expectType, isSlice)
+	if count == 0 {
+		err = ErrUnexpectedType
+		return
+	}
+	if isSlice {
+		value.Set(reflect.MakeSlice(value.Type(), 0, count))
+	}
+
+	for i := 0; i < count; i++ {
+		nn, _ := readVarNum(b[n:])
 		n += nn
 		nn, l := readVarNum(b[n:])
 		n += nn
@@ -255,15 +263,8 @@ func readTLV(b []byte, expectType uint64, value reflect.Value) (n int, err error
 		n += int(l)
 		err = readValue(v, value)
 		if err != nil {
-			break
-		}
-		progress = true
-		if value.Kind() != reflect.Slice || value.Type().Elem().Kind() == reflect.Uint8 {
 			return
 		}
-	}
-	if progress {
-		err = nil
 	}
 	return
 }
