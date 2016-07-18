@@ -22,7 +22,7 @@ func (t *testStruct) ReadFrom(r Reader) error {
 	return r.Read(t, 1)
 }
 
-func (t *testStruct) WriteTo(w Writer) error {
+func (t testStruct) WriteTo(w Writer) error {
 	return w.Write(t, 1)
 }
 
@@ -157,7 +157,18 @@ func TestReadWriter(t *testing.T) {
 	}
 }
 
-func TestCopy(t *testing.T) {
+func TestCopyDiffType(t *testing.T) {
+	v := new(testStruct)
+	err := Copy(v, *ref)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(ref, v) {
+		t.Fatalf("expect %+v, got %+v", ref, v)
+	}
+}
+
+func TestCopySameType(t *testing.T) {
 	v := new(testStruct)
 	err := Copy(v, ref)
 	if err != nil {
