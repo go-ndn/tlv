@@ -82,6 +82,38 @@ func TestMarshal(t *testing.T) {
 	}
 }
 
+func TestReaderPeek(t *testing.T) {
+	for _, test := range []struct {
+		in   []byte
+		want uint64
+	}{
+		{
+			in:   []byte{1, 0},
+			want: 1,
+		},
+		{
+			in:   []byte{253, 255, 255, 0},
+			want: 65535,
+		},
+		{
+			in:   []byte{254, 255, 255, 255, 255, 0},
+			want: 4294967295,
+		},
+		{
+			in:   []byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 0},
+			want: 18446744073709551615,
+		},
+		{
+			want: 0,
+		},
+	} {
+		got := NewReader(bytes.NewReader(test.in)).Peek()
+		if test.want != got {
+			t.Fatalf("Peek() == %d, got %d", test.want, got)
+		}
+	}
+}
+
 func TestReadWriter(t *testing.T) {
 	for _, test := range []struct {
 		to   interface{}

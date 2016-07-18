@@ -51,6 +51,12 @@ func TestIsZero(t *testing.T) {
 			want: true,
 		},
 		{
+			in: struct {
+				V int64 `tlv:"1"`
+			}{},
+			want: false,
+		},
+		{
 			in:   nil,
 			want: false,
 		},
