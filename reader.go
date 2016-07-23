@@ -247,6 +247,9 @@ func readTLV(b []byte, expectType uint64, value reflect.Value) (n int, err error
 
 	count := countTLV(b, expectType, isSlice)
 	if count == 0 {
+		if value.Kind() == reflect.Bool || isSlice {
+			return
+		}
 		err = ErrUnexpectedType
 		return
 	}

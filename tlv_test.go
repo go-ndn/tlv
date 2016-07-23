@@ -35,6 +35,7 @@ var (
 		Byte:   []byte{0x1, 0x2, 0x3},
 		Bool:   true,
 	}
+	refBool bool
 )
 
 func TestMarshal(t *testing.T) {
@@ -51,8 +52,16 @@ func TestMarshal(t *testing.T) {
 			to:   new(string),
 		},
 		{
+			from: &refBool,
+			to:   new(bool),
+		},
+		{
 			from: &ref.Bool,
 			to:   new(bool),
+		},
+		{
+			from: &[]uint64{},
+			to:   &[]uint64{},
 		},
 		{
 			from: &ref.Num,
