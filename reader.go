@@ -79,31 +79,30 @@ func fillVarNum(r io.Reader, b []byte) (n int, err error) {
 }
 
 // fill fills b with the next tlv-encoded block.
-func (r *reader) fill() (err error) {
+func (r *reader) fill() error {
 	var n int
 	nn, err := fillVarNum(r.Reader, r.b[n:])
 	if err != nil {
-		return
+		return err
 	}
 	n += nn
 
 	nn, err = fillVarNum(r.Reader, r.b[n:])
 	if err != nil {
-		return
+		return err
 	}
 	_, l := readVarNum(r.b[n:])
 	n += nn
 
 	if l > uint64(len(r.b[n:])) {
-		err = ErrPacketTooLarge
-		return
+		return ErrPacketTooLarge
 	}
 	_, err = io.ReadFull(r.Reader, r.b[n:n+int(l)])
 	if err != nil {
-		return
+		return err
 	}
 	r.valid = true
-	return
+	return nil
 }
 
 func (r *reader) Read(v interface{}, t uint64) (err error) {
@@ -158,17 +157,13 @@ func readUint64(b []byte) uint64 {
 
 func readStruct(v []byte, structValue reflect.Value) error {
 	var n int
-	return walkStruct(structValue.Type(), func(tag *structTag, i int) (err error) {
+	return walkStruct(structValue.Type(), func(tag *structTag, i int) error {
 		nn, err := readTLV(v[n:], tag.Type, structValue.Field(i))
-		if err != nil {
-			if tag.Optional {
-				err = nil
-			} else {
-				return
-			}
+		if err != nil && !tag.Optional {
+			return err
 		}
 		n += nn
-		return
+		return nil
 	})
 }
 
@@ -176,10 +171,9 @@ var (
 	typeBinaryUnmarshaler = reflect.TypeOf((*encoding.BinaryUnmarshaler)(nil)).Elem()
 )
 
-func readValue(v []byte, value reflect.Value) (err error) {
+func readValue(v []byte, value reflect.Value) error {
 	if value.Addr().Type().Implements(typeBinaryUnmarshaler) {
-		err = value.Addr().Interface().(encoding.BinaryUnmarshaler).UnmarshalBinary(v)
-		return
+		return value.Addr().Interface().(encoding.BinaryUnmarshaler).UnmarshalBinary(v)
 	}
 	switch value.Kind() {
 	case reflect.Bool:
@@ -190,7 +184,7 @@ func readValue(v []byte, value reflect.Value) (err error) {
 		switch value.Type().Elem().Kind() {
 		case reflect.Uint8:
 			if len(v) == 0 {
-				return
+				return nil
 			}
 			b := make([]byte, len(v))
 			copy(b, v)
@@ -198,10 +192,10 @@ func readValue(v []byte, value reflect.Value) (err error) {
 		default:
 			i0 := value.Len()
 			value.SetLen(i0 + 1)
-			err = readValue(v, value.Index(i0))
+			err := readValue(v, value.Index(i0))
 			if err != nil {
 				value.SetLen(i0)
-				return
+				return err
 			}
 		}
 	case reflect.String:
@@ -210,13 +204,13 @@ func readValue(v []byte, value reflect.Value) (err error) {
 		if value.IsNil() {
 			value.Set(reflect.New(value.Type().Elem()))
 		}
-		err = readValue(v, value.Elem())
+		return readValue(v, value.Elem())
 	case reflect.Struct:
-		err = readStruct(v, value)
+		return readStruct(v, value)
 	default:
-		err = ErrNotSupported
+		return ErrNotSupported
 	}
-	return
+	return nil
 }
 
 func countTLV(b []byte, expectType uint64, mult bool) (count int) {

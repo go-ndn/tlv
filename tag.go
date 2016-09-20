@@ -66,18 +66,17 @@ func CacheType(v interface{}) error {
 	return cacheType(reflect.TypeOf(v))
 }
 
-func cacheType(t reflect.Type) (err error) {
+func cacheType(t reflect.Type) error {
 	if _, ok := cacheMap[t]; ok {
-		return
+		return nil
 	}
 	switch t.Kind() {
 	case reflect.Ptr:
 		return cacheType(t.Elem())
 	case reflect.Struct:
-		var tags []*structTag
-		tags, err = parseStruct(t)
+		tags, err := parseStruct(t)
 		if err != nil {
-			return
+			return err
 		}
 		cacheMap[t] = tags
 		for i, tag := range tags {
@@ -86,11 +85,11 @@ func cacheType(t reflect.Type) (err error) {
 			}
 			err = cacheType(t.Field(i).Type)
 			if err != nil {
-				return
+				return err
 			}
 		}
 	}
-	return
+	return nil
 }
 
 // walkStruct parses tag of every struct field, and invokes f if the field is exported.
