@@ -21,7 +21,7 @@ type structTag struct {
 
 // TODO: strings.TrimRight allocates due to strings.makeCutsetFunc
 func isOption(r rune) bool {
-	return strings.IndexRune("?*", r) >= 0
+	return strings.ContainsRune("?*", r)
 }
 
 func (tag *structTag) parse(t reflect.StructTag) (err error) {
